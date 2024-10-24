@@ -66,7 +66,9 @@ int main(int argc, char* argv[])
                                      SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED,
                                      LOGICAL_WIDTH, LOGICAL_HEIGHT,
-                                     SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
+                                     // TODO: how do I make stuff scale for high dpi devices?
+                                     /*SDL_WINDOW_ALLOW_HIGHDPI | */
+                                     SDL_WINDOW_RESIZABLE);
     if (!global_window)
     {
         std::cout << "Could not create window: " << SDL_GetError() << std::endl;
