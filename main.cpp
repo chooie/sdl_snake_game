@@ -62,6 +62,11 @@ int main(int argc, char* argv[])
     // const char* platform = SDL_GetPlatform();
     // std::cout << "Platform " << platform << std::endl;
 
+    // Set macOS-specific hint
+    #ifdef __APPLE__
+    SDL_SetHint(SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES, "1");
+    #endif
+
     global_window = SDL_CreateWindow("Hello SDL World!",
                                      SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED,
@@ -75,7 +80,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED
+    // No VSYNC for now as it make moving the window sluggish on MacOS
+    /*| SDL_RENDERER_PRESENTVSYNC*/);
     if (!global_renderer)
     {
         fprintf(stderr, "SDL_CreateRenderer Error: %s\n", SDL_GetError());
