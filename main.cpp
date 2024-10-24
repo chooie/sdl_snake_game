@@ -42,25 +42,24 @@ render()
     SDL_RenderPresent(global_renderer);
 }
 
-int filterEvent(void *userdata, SDL_Event * event) {
-    if (event->type == SDL_WINDOWEVENT && (event->window.event == SDL_WINDOWEVENT_RESIZED))
-    {
-        global_did_resize = 1;
-        SDL_GetWindowSize(global_window, &window_width, &window_height);
-        // fprintf(stderr, "Width: %d, Height: %d\n", window_width, window_height);
-        render();
-
-        // Take the event off the internal queue
-        return 0;
+int filterEvent(void *userdata, SDL_Event *event) {
+    if (event->type == SDL_WINDOWEVENT) {
+        if (event->window.event == SDL_WINDOWEVENT_RESIZED) {
+            global_did_resize = 1;
+            return 0; // Prevent excessive rendering during resize
+        }
+        // Ignore other window events during drag
+        if (event->window.event == SDL_WINDOWEVENT_MOVED) {
+            return 0;
+        }
     }
-
-    // Not an event we need to immediately process, so allow it to remain on the queue
-    return 1;
+    return 1; // Allow other events
 }
 
 int main(int argc, char* argv[])
 {
     SDL_Init(SDL_INIT_EVERYTHING);
+    timeBeginPeriod(1);
     
     // const char* platform = SDL_GetPlatform();
     // std::cout << "Platform " << platform << std::endl;
@@ -106,6 +105,56 @@ int main(int argc, char* argv[])
 
     while (global_running)
     {
+        while (SDL_PollEvent(&event))
+        {
+            switch(event.type)
+            {
+                case SDL_KEYDOWN:
+                {
+                    switch (event.key.keysym.sym)
+                    {
+                        case SDLK_ESCAPE:
+                        {
+                            global_running = false;
+                        } break;
+                        case SDLK_s:
+                        {
+                            SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
+                        } break;
+                        case SDLK_f:
+                        {
+                            int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN;
+                            if (isFullScreen)
+                            {
+                                SDL_SetWindowFullscreen(global_window, 0);
+                            }
+                            else
+                            {
+                                SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                            }
+                        }
+                        break;
+                    }
+                } break;
+
+                case SDL_WINDOWEVENT:
+                {
+                    switch (event.window.event)
+                    {
+                        case SDL_WINDOWEVENT_CLOSE: 
+                        {
+                            global_running = false;
+                        } break;
+                    }
+                } break;
+
+                case SDL_QUIT:
+                {
+                    global_running = false;
+                    break;
+                }
+            }
+        }
         Uint64 timer_now = SDL_GetPerformanceCounter();
         float time_delta_ms = ((float)(timer_now - timer_last_frame_drawn) / (float)performance_frequency) * 1000;
 
@@ -148,60 +197,10 @@ int main(int argc, char* argv[])
                 SDL_SetWindowTitle(global_window, title_str);
             }
 
-            while (SDL_PollEvent(&event))
-            {
-                switch(event.type)
-                {
-                    case SDL_KEYDOWN:
-                    {
-                        switch (event.key.keysym.sym)
-                        {
-                            case SDLK_ESCAPE:
-                            {
-                                global_running = false;
-                            } break;
-                            case SDLK_s:
-                            {
-                                SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
-                            } break;
-                            case SDLK_f:
-                            {
-                                int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN;
-                                if (isFullScreen)
-                                {
-                                    SDL_SetWindowFullscreen(global_window, 0);
-                                }
-                                else
-                                {
-                                    SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-                                }
-                            }
-                            break;
-                        }
-                    } break;
-
-                    case SDL_WINDOWEVENT:
-                    {
-                        switch (event.window.event)
-                        {
-                            case SDL_WINDOWEVENT_CLOSE: 
-                            {
-                                global_running = false;
-                            } break;
-                        }
-                    } break;
-
-                    case SDL_QUIT:
-                    {
-                        global_running = false;
-                        break;
-                    }
-                }
-            }
-
             if (!global_did_resize) {
                 render();
             } else {
+                SDL_GetWindowSize(global_window, &window_width, &window_height);
                 global_did_resize = 0;
             }
 
