@@ -14,6 +14,7 @@ int window_width = LOGICAL_WIDTH;
 int window_height = LOGICAL_HEIGHT;
 
 int TARGET_SCREEN_FPS = 60;
+float TARGET_TIME_PER_FRAME_S = 1.f / (float)TARGET_SCREEN_FPS;
 float TARGET_TIME_PER_FRAME_MS = 1000.f / (float)TARGET_SCREEN_FPS;
 
 int global_running = 1;
@@ -130,8 +131,10 @@ int main(int argc, char* argv[])
 
     SDL_SetEventFilter(filterEvent, &event);
 
-    Uint64 performance_frequency = SDL_GetPerformanceFrequency();
-    Uint64 timer_last_frame_drawn = SDL_GetPerformanceCounter();
+    Uint64 PERFORMANCE_FREQUENCY = SDL_GetPerformanceFrequency();
+    Uint64 counter_start_frame = SDL_GetPerformanceCounter();
+    // Sometimes we're going to oversleep, so we need to account for that potentially
+    float frame_time_debt_s = 0;
     unsigned int counter = 0;
 
     float angle = 0.0f;  // Rotation angle
@@ -140,134 +143,126 @@ int main(int argc, char* argv[])
 
     while (global_running)
     {
-        Uint64 timer_now = SDL_GetPerformanceCounter();
-        float time_delta_ms = ((float)(timer_now - timer_last_frame_drawn) / (float)performance_frequency) * 1000;
-
-        if (time_delta_ms >= TARGET_TIME_PER_FRAME_MS)
+        while (SDL_PollEvent(&event))
         {
-            float fps = 1000.0f / time_delta_ms;
-            std::cout << "fps: " << fps << std::endl;
-
-            counter++;
-
-            if (counter >= (unsigned int)TARGET_SCREEN_FPS)
+            switch(event.type)
             {
-                counter = 0;
-
-                char fps_str[20]; // Allocate enough space for the string
-                sprintf(fps_str, "%.2f", fps);
-
-                // Generate a random number in a range (for example, between 0 and 100)
-                int random_number = rand() % 101; // Generates a number between 0 and 100
-                char random_str[20];
-                sprintf(random_str, "%d", random_number);
-
-                char title_str[100] = "SDL Starter (FPS: ";
-                int index_to_start_adding = 0;
-                while (title_str[index_to_start_adding] != '\0')
-                {
-                    index_to_start_adding++;
-                }
-
-                // for (int i = 0; random_str[i] != '\0'; i++) {
-                //     title_str[index_to_start_adding++] = random_str[i];
-                // }
-
-                for (int i = 0; fps_str[i] != '\0'; i++)
-                {
-                    title_str[index_to_start_adding++] = fps_str[i];
-                }
-
-                title_str[index_to_start_adding++] = ')';
-
-                title_str[index_to_start_adding++] = '\0';
-
-                SDL_SetWindowTitle(global_window, title_str);
-            }
-
-            while (SDL_PollEvent(&event))
-            {
-                switch (event.type)
-                {
                 case SDL_KEYDOWN:
                 {
                     switch (event.key.keysym.sym)
                     {
-                    case SDLK_ESCAPE:
-                    {
-                        global_running = false;
-                    }
-                    break;
-                    case SDLK_s:
-                    {
-                        SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
-                    }
-                    break;
-                    case SDLK_f:
-                    {
-                        int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN;
-                        if (isFullScreen)
+                        case SDLK_ESCAPE:
                         {
-                            SDL_SetWindowFullscreen(global_window, 0);
-                        }
-                        else
+                            global_running = false;
+                        } break;
+                        case SDLK_s:
                         {
-                            SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                            SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
+                        } break;
+                        case SDLK_f:
+                        {
+                            int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN;
+                            if (isFullScreen)
+                            {
+                                SDL_SetWindowFullscreen(global_window, 0);
+                            }
+                            else
+                            {
+                                SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                            }
                         }
+                        break;
                     }
-                    break;
-                    }
-                }
-                break;
+                } break;
 
                 case SDL_WINDOWEVENT:
                 {
                     switch (event.window.event)
                     {
-                    case SDL_WINDOWEVENT_CLOSE:
-                    {
-                        global_running = false;
+                        case SDL_WINDOWEVENT_CLOSE: 
+                        {
+                            global_running = false;
+                        } break;
                     }
-                    break;
-                    }
-                }
-                break;
+                } break;
 
                 case SDL_QUIT:
                 {
                     global_running = false;
                     break;
                 }
-                }
-            }
-
-            if (!global_did_resize)
-            {
-                Uint64 counter_now = SDL_GetPerformanceCounter();
-                dt_s = ((float)(counter_now - counter_before) / (float)performance_frequency);
-                printf("%f\n", dt_s);
-                angle += 90.0f * dt_s; // Rotate 90 degrees per second
-                // Render the rotating square with the current angle
-                render(square_texture, angle);
-                counter_before = counter_now;
-            }
-            else
-            {
-                global_did_resize = 0;
-            }
-
-            timer_last_frame_drawn = SDL_GetPerformanceCounter();
-            float time_elapsed_this_frame_ms = ((float)(timer_last_frame_drawn - timer_now) / (float)performance_frequency) * 1000;
-
-            if (time_elapsed_this_frame_ms < TARGET_TIME_PER_FRAME_MS)
-            {
-                SDL_Delay((int)(TARGET_TIME_PER_FRAME_MS - time_elapsed_this_frame_ms));
-            }
-            else
-            {
-                printf("Missed frame!");
             }
         }
+
+        if (!global_did_resize) {
+            Uint64 counter_now = SDL_GetPerformanceCounter();
+            dt_s = ((float)(counter_now - counter_before) / (float)PERFORMANCE_FREQUENCY);
+            printf("%f\n", dt_s);
+            angle += 90.0f * dt_s;  // Rotate 90 degrees per second
+            // Render the rotating square with the current angle
+            render(square_texture, angle);
+            counter_before = counter_now;
+        } else {
+            SDL_GetWindowSize(global_window, &window_width, &window_height);
+            global_did_resize = 0;
+        }
+
+        Uint64 counter_end_frame = SDL_GetPerformanceCounter();
+
+        float frame_time_elapsed_s = ((float)(counter_end_frame - counter_start_frame) / (float)PERFORMANCE_FREQUENCY);
+
+        float sleep_time_s = (TARGET_TIME_PER_FRAME_S - frame_time_debt_s) - frame_time_elapsed_s;
+        if (sleep_time_s > 0) {
+            float sleep_time_ms = sleep_time_s * 1000.0f;
+            SDL_Delay((unsigned int)sleep_time_ms);
+        } else {
+            printf("Missed frame!\n");
+        }
+        Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
+        float actual_frame_time_s = ((float)(counter_after_sleep - counter_start_frame) / (float)PERFORMANCE_FREQUENCY);
+        
+        frame_time_debt_s = actual_frame_time_s - TARGET_TIME_PER_FRAME_S;
+        if (frame_time_debt_s < 0) {
+            frame_time_debt_s = 0;
+        }
+
+        float fps = 1.0f / actual_frame_time_s;
+        // std::cout << "fps: " << fps << std::endl;
+
+        counter++;
+        if (counter >= (unsigned int)TARGET_SCREEN_FPS) {
+            counter = 0;
+
+            char fps_str[20];  // Allocate enough space for the string
+            sprintf(fps_str, "%.2f", fps);
+
+            // Generate a random number in a range (for example, between 0 and 100)
+            int random_number = rand() % 101; // Generates a number between 0 and 100
+            char random_str[20];
+            sprintf(random_str, "%d", random_number);
+
+            char title_str[100] = "SDL Starter (FPS: ";
+            int index_to_start_adding = 0;
+            while (title_str[index_to_start_adding] != '\0') {
+                index_to_start_adding++;
+            }
+
+            // for (int i = 0; random_str[i] != '\0'; i++) {
+            //     title_str[index_to_start_adding++] = random_str[i];
+            // }
+
+            for (int i = 0; fps_str[i] != '\0'; i++) {
+                title_str[index_to_start_adding++] = fps_str[i];
+            }
+
+            title_str[index_to_start_adding++] = ')';
+
+            title_str[index_to_start_adding++] = '\0';
+
+            SDL_SetWindowTitle(global_window, title_str);
+        }
+
+        counter_start_frame = counter_after_sleep;
     }
 
     SDL_DestroyRenderer(global_renderer);
