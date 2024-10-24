@@ -65,18 +65,27 @@ int main(int argc, char* argv[])
     // const char* platform = SDL_GetPlatform();
     // std::cout << "Platform " << platform << std::endl;
 
+    // Set macOS-specific hint
+    #ifdef __APPLE__
+    SDL_SetHint(SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES, "1");
+    #endif
+
     global_window = SDL_CreateWindow("SDL Starter",
                                      SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED,
                                      LOGICAL_WIDTH, LOGICAL_HEIGHT,
-                                     SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE);
+                                     // TODO: how do I make stuff scale for high dpi devices?
+                                     /*SDL_WINDOW_ALLOW_HIGHDPI | */
+                                     SDL_WINDOW_RESIZABLE);
     if (!global_window)
     {
         std::cout << "Could not create window: " << SDL_GetError() << std::endl;
         return 1;
     }
 
-    global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED /* | SDL_RENDERER_PRESENTVSYNC */);
+    global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED
+    // No VSYNC for now as it make moving the window sluggish on MacOS
+    /*| SDL_RENDERER_PRESENTVSYNC*/);
     if (!global_renderer)
     {
         fprintf(stderr, "SDL_CreateRenderer Error: %s\n", SDL_GetError());

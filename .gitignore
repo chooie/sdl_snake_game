@@ -1,5 +1,4 @@
 build/
 .vs
 *.exe
-
 .DS_Store
