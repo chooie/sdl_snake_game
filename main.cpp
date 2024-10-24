@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
     // std::cout << "Platform " << platform << std::endl;
 
     #ifdef __WINDOWS__
-    // timeBeginPeriod(1);
+    timeBeginPeriod(1);
     #endif
 
     // Set macOS-specific hint
