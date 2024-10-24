@@ -9,7 +9,7 @@
       "stopAtEntry": false,
       "externalConsole": true,
       "cwd": "w:/sdl_starter",
-      "program": "w:/sdl_starter/build/Release/outRelease",
+      "program": "w:/sdl_starter/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

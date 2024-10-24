@@ -8,6 +8,9 @@ float ABSOLUTE_ASPECT_RATIO = float(LOGICAL_WIDTH) / (float)LOGICAL_HEIGHT;
 int window_width = LOGICAL_WIDTH;
 int window_height = LOGICAL_HEIGHT;
 
+int TARGET_SCREEN_FPS = 60;
+float TARGET_TIME_PER_FRAME_MS = 1000.f / (float)TARGET_SCREEN_FPS;
+
 int global_running = 1;
 SDL_Window* global_window;
 SDL_Renderer* global_renderer;
@@ -62,7 +65,7 @@ int main(int argc, char* argv[])
     // const char* platform = SDL_GetPlatform();
     // std::cout << "Platform " << platform << std::endl;
 
-    global_window = SDL_CreateWindow("Hello SDL World!",
+    global_window = SDL_CreateWindow("SDL Starter",
                                      SDL_WINDOWPOS_CENTERED,
                                      SDL_WINDOWPOS_CENTERED,
                                      LOGICAL_WIDTH, LOGICAL_HEIGHT,
@@ -73,7 +76,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED /* | SDL_RENDERER_PRESENTVSYNC */);
     if (!global_renderer)
     {
         fprintf(stderr, "SDL_CreateRenderer Error: %s\n", SDL_GetError());
@@ -86,63 +89,121 @@ int main(int argc, char* argv[])
 
     SDL_SetEventFilter(filterEvent, &event);
 
+    srand((unsigned int)time(NULL));
+    
+    Uint64 performance_frequency = SDL_GetPerformanceFrequency();
+    Uint64 timer_last_frame_drawn = SDL_GetPerformanceCounter();
+    unsigned int counter = 0;
+
     while (global_running)
     {
-        while (SDL_PollEvent(&event))
+        Uint64 timer_now = SDL_GetPerformanceCounter();
+        float time_delta_ms = ((float)(timer_now - timer_last_frame_drawn) / (float)performance_frequency) * 1000;
+
+        if (time_delta_ms >= TARGET_TIME_PER_FRAME_MS)
         {
-            switch(event.type)
+            float fps = 1000.0f / time_delta_ms;
+            std::cout << "fps: " << fps << std::endl;
+
+            counter++;
+
+            if (counter >= (unsigned int)TARGET_SCREEN_FPS) {
+                counter = 0;
+
+                char fps_str[20];  // Allocate enough space for the string
+                sprintf(fps_str, "%.2f", fps);
+
+                // Generate a random number in a range (for example, between 0 and 100)
+                int random_number = rand() % 101; // Generates a number between 0 and 100
+                char random_str[20];
+                sprintf(random_str, "%d", random_number);
+
+                char title_str[100] = "SDL Starter (FPS: ";
+                int index_to_start_adding = 0;
+                while (title_str[index_to_start_adding] != '\0') {
+                    index_to_start_adding++;
+                }
+
+                // for (int i = 0; random_str[i] != '\0'; i++) {
+                //     title_str[index_to_start_adding++] = random_str[i];
+                // }
+
+                for (int i = 0; fps_str[i] != '\0'; i++) {
+                    title_str[index_to_start_adding++] = fps_str[i];
+                }
+
+                title_str[index_to_start_adding++] = ')';
+
+                title_str[index_to_start_adding++] = '\0';
+
+                SDL_SetWindowTitle(global_window, title_str);
+            }
+
+            while (SDL_PollEvent(&event))
             {
-                case SDL_KEYDOWN:
+                switch(event.type)
                 {
-                    switch (event.key.keysym.sym)
+                    case SDL_KEYDOWN:
                     {
-                        case SDLK_ESCAPE:
+                        switch (event.key.keysym.sym)
                         {
-                            global_running = false;
-                        } break;
-                        case SDLK_s:
-                        {
-                            SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
-                        } break;
-                        case SDLK_f:
-                        {
-                            int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN;
-                            if (isFullScreen)
+                            case SDLK_ESCAPE:
                             {
-                                SDL_SetWindowFullscreen(global_window, 0);
-                            }
-                            else
+                                global_running = false;
+                            } break;
+                            case SDLK_s:
                             {
-                                SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                                SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
+                            } break;
+                            case SDLK_f:
+                            {
+                                int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN;
+                                if (isFullScreen)
+                                {
+                                    SDL_SetWindowFullscreen(global_window, 0);
+                                }
+                                else
+                                {
+                                    SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                                }
                             }
+                            break;
                         }
+                    } break;
+
+                    case SDL_WINDOWEVENT:
+                    {
+                        switch (event.window.event)
+                        {
+                            case SDL_WINDOWEVENT_CLOSE: 
+                            {
+                                global_running = false;
+                            } break;
+                        }
+                    } break;
+
+                    case SDL_QUIT:
+                    {
+                        global_running = false;
                         break;
                     }
-                } break;
-
-                case SDL_WINDOWEVENT:
-                {
-                    switch (event.window.event)
-                    {
-                        case SDL_WINDOWEVENT_CLOSE: 
-                        {
-                            global_running = false;
-                        } break;
-                    }
-                } break;
-
-                case SDL_QUIT:
-                {
-                    global_running = false;
-                    break;
                 }
             }
-        }
 
-        if (!global_did_resize) {
-            render();
-        } else {
-            global_did_resize = 0;
+            if (!global_did_resize) {
+                render();
+            } else {
+                global_did_resize = 0;
+            }
+
+            timer_last_frame_drawn = SDL_GetPerformanceCounter();
+            float time_elapsed_this_frame_ms = ((float)(timer_last_frame_drawn - timer_now) / (float)performance_frequency) * 1000;
+
+            if (time_elapsed_this_frame_ms < TARGET_TIME_PER_FRAME_MS) {
+                SDL_Delay((int)(TARGET_TIME_PER_FRAME_MS - time_elapsed_this_frame_ms));
+            } else {
+                printf("Missed frame!");
+            }
         }
     }
 

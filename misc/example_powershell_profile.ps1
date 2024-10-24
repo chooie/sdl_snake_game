@@ -13,7 +13,11 @@ function rb {
     # Try to stop any running instances of "main.exe" without showing errors if it's not found
     Stop-Process -Name "main" -Force -ErrorAction SilentlyContinue
     make
-    run
+    # Check if the previous command (make) succeeded
+    if ($?) {
+        # Only run this if make was successful
+        run
+    }
 }
 
 function run {
