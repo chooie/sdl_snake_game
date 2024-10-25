@@ -1,3 +1,5 @@
+#include "common.h"
+
 #include <iostream>
 #include <SDL2/SDL.h>
 
@@ -6,24 +8,24 @@
 #include <mmsystem.h>
 #endif
 
-int LOGICAL_WIDTH = 1280;
-int LOGICAL_HEIGHT = 720;
-float ABSOLUTE_ASPECT_RATIO = float(LOGICAL_WIDTH) / (float)LOGICAL_HEIGHT;
+int32 LOGICAL_WIDTH = 1280;
+int32 LOGICAL_HEIGHT = 720;
+real32 ABSOLUTE_ASPECT_RATIO = real32(LOGICAL_WIDTH) / (real32)LOGICAL_HEIGHT;
 
-int window_width = LOGICAL_WIDTH;
-int window_height = LOGICAL_HEIGHT;
+int32 window_width = LOGICAL_WIDTH;
+int32 window_height = LOGICAL_HEIGHT;
 
-int TARGET_SCREEN_FPS = 60;
-float TARGET_TIME_PER_FRAME_S = 1.f / (float)TARGET_SCREEN_FPS;
-float TARGET_TIME_PER_FRAME_MS = 1000.f / (float)TARGET_SCREEN_FPS;
+int32 TARGET_SCREEN_FPS = 60;
+real32 TARGET_TIME_PER_FRAME_S = 1.f / (real32)TARGET_SCREEN_FPS;
+real32 TARGET_TIME_PER_FRAME_MS = 1000.f / (real32)TARGET_SCREEN_FPS;
 
-int global_running = 1;
+int32 global_running = 1;
 SDL_Window* global_window;
 SDL_Renderer* global_renderer;
-int global_did_resize = 0;
+int32 global_did_resize = 0;
 SDL_Rect global_viewport;
 
-SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int size)
+SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
 {
     // Create an SDL texture to represent the square
     SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, size, size);
@@ -46,14 +48,14 @@ SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int size)
     return texture;
 }
 
-void render(SDL_Texture* square_texture, float angle)
+void render(SDL_Texture* square_texture, real32 angle)
 {
     // Calculate the size of the square
-    int square_size = (window_width < window_height) ? window_width / 4 : window_height / 4;
+    int32 square_size = (window_width < window_height) ? window_width / 4 : window_height / 4;
 
     // Calculate position to center the square
-    int square_x = (window_width - square_size) / 2;
-    int square_y = (window_height - square_size) / 2;
+    int32 square_x = (window_width - square_size) / 2;
+    int32 square_y = (window_height - square_size) / 2;
 
     SDL_Rect dst_rect = { square_x, square_y, square_size, square_size };
 
@@ -71,7 +73,7 @@ void render(SDL_Texture* square_texture, float angle)
     SDL_RenderPresent(global_renderer);
 }
 
-int filterEvent(void *userdata, SDL_Event *event) {
+int32 filterEvent(void* userdata, SDL_Event* event) {
     if (event->type == SDL_WINDOWEVENT) {
         if (event->window.event == SDL_WINDOWEVENT_RESIZED) {
             global_did_resize = 1;
@@ -85,7 +87,7 @@ int filterEvent(void *userdata, SDL_Event *event) {
     return 1; // Allow other events
 }
 
-int main(int argc, char* argv[])
+int32 main(int32 argc, char* argv[])
 {
     SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -134,11 +136,11 @@ int main(int argc, char* argv[])
     Uint64 PERFORMANCE_FREQUENCY = SDL_GetPerformanceFrequency();
     Uint64 counter_start_frame = SDL_GetPerformanceCounter();
     // Sometimes we're going to oversleep, so we need to account for that potentially
-    float frame_time_debt_s = 0;
+    real32 frame_time_debt_s = 0;
     unsigned int counter = 0;
 
-    float angle = 0.0f;  // Rotation angle
-    float dt_s = 0;
+    real32 angle = 0.0f;  // Rotation angle
+    real32 dt_s = 0;
     Uint64 counter_before = SDL_GetPerformanceCounter();
 
     while (global_running)
@@ -196,8 +198,7 @@ int main(int argc, char* argv[])
 
         if (!global_did_resize) {
             Uint64 counter_now = SDL_GetPerformanceCounter();
-            dt_s = ((float)(counter_now - counter_before) / (float)PERFORMANCE_FREQUENCY);
-            printf("%f\n", dt_s);
+            dt_s = ((real32)(counter_now - counter_before) / (real32)PERFORMANCE_FREQUENCY);
             angle += 90.0f * dt_s;  // Rotate 90 degrees per second
             // Render the rotating square with the current angle
             render(square_texture, angle);
@@ -209,35 +210,35 @@ int main(int argc, char* argv[])
 
         Uint64 counter_end_frame = SDL_GetPerformanceCounter();
 
-        float frame_time_elapsed_s = ((float)(counter_end_frame - counter_start_frame) / (float)PERFORMANCE_FREQUENCY);
+        real32 frame_time_elapsed_s = ((real32)(counter_end_frame - counter_start_frame) / (real32)PERFORMANCE_FREQUENCY);
 
-        float sleep_time_s = (TARGET_TIME_PER_FRAME_S - frame_time_debt_s) - frame_time_elapsed_s;
+        real32 sleep_time_s = (TARGET_TIME_PER_FRAME_S - frame_time_debt_s) - frame_time_elapsed_s;
         if (sleep_time_s > 0) {
-            float sleep_time_ms = sleep_time_s * 1000.0f;
-            SDL_Delay((unsigned int)sleep_time_ms);
+            real32 sleep_time_ms = sleep_time_s * 1000.0f;
+            SDL_Delay((uint32)sleep_time_ms);
         } else {
             printf("Missed frame!\n");
         }
         Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
-        float actual_frame_time_s = ((float)(counter_after_sleep - counter_start_frame) / (float)PERFORMANCE_FREQUENCY);
+        real32 actual_frame_time_s = ((real32)(counter_after_sleep - counter_start_frame) / (real32)PERFORMANCE_FREQUENCY);
         
         frame_time_debt_s = actual_frame_time_s - TARGET_TIME_PER_FRAME_S;
         if (frame_time_debt_s < 0) {
             frame_time_debt_s = 0;
         }
 
-        float fps = 1.0f / actual_frame_time_s;
+        real32 fps = 1.0f / actual_frame_time_s;
         // std::cout << "fps: " << fps << std::endl;
 
         counter++;
-        if (counter >= (unsigned int)TARGET_SCREEN_FPS) {
+        if (counter >= (uint32)TARGET_SCREEN_FPS) {
             counter = 0;
 
             char fps_str[20];  // Allocate enough space for the string
             sprintf(fps_str, "%.2f", fps);
 
             // Generate a random number in a range (for example, between 0 and 100)
-            int random_number = rand() % 101; // Generates a number between 0 and 100
+            int32 random_number = rand() % 101; // Generates a number between 0 and 100
             char random_str[20];
             sprintf(random_str, "%d", random_number);
 
@@ -251,7 +252,7 @@ int main(int argc, char* argv[])
             //     title_str[index_to_start_adding++] = random_str[i];
             // }
 
-            for (int i = 0; fps_str[i] != '\0'; i++) {
+            for (uint32 i = 0; fps_str[i] != '\0'; i++) {
                 title_str[index_to_start_adding++] = fps_str[i];
             }
 
