@@ -25,6 +25,76 @@ SDL_Renderer* global_renderer;
 int32 global_did_resize = 0;
 SDL_Rect global_viewport;
 
+struct Fps_Limiter {
+  Uint64 PERFORMANCE_FREQUENCY;
+  Uint64 counter_start_frame;
+  real32 frame_time_debt_s;
+  uint32 counter;
+};
+
+void limit_fps(Fps_Limiter* fps_limiter) {
+    Uint64 PERFORMANCE_FREQUENCY = fps_limiter->PERFORMANCE_FREQUENCY;
+
+    Fps_Limiter* l = fps_limiter;
+
+    Uint64 counter_end_frame = SDL_GetPerformanceCounter();
+
+    real32 frame_time_elapsed_s = ((real32)(counter_end_frame - l->counter_start_frame) / (real32)PERFORMANCE_FREQUENCY);
+
+    real32 sleep_time_s = (TARGET_TIME_PER_FRAME_S - l->frame_time_debt_s) - frame_time_elapsed_s;
+    if (sleep_time_s > 0) {
+        real32 sleep_time_ms = sleep_time_s * 1000.0f;
+        SDL_Delay((uint32)sleep_time_ms);
+    } else {
+        printf("Missed frame!\n");
+    }
+    Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
+    real32 actual_frame_time_s = ((real32)(counter_after_sleep - l->counter_start_frame) / (real32)PERFORMANCE_FREQUENCY);
+       
+    l->frame_time_debt_s = actual_frame_time_s - TARGET_TIME_PER_FRAME_S;
+    if (l->frame_time_debt_s < 0) {
+        l->frame_time_debt_s = 0;
+    }
+
+    real32 fps = 1.0f / actual_frame_time_s;
+    // std::cout << "fps: " << fps << std::endl;
+
+    l->counter++;
+    if (l->counter >= (uint32)TARGET_SCREEN_FPS) {
+        l->counter = 0;
+
+        char fps_str[20];  // Allocate enough space for the string
+        sprintf(fps_str, "%.2f", fps);
+
+        // Generate a random number in a range (for example, between 0 and 100)
+        int32 random_number = rand() % 101; // Generates a number between 0 and 100
+        char random_str[20];
+        sprintf(random_str, "%d", random_number);
+
+        char title_str[100] = "SDL Starter (FPS: ";
+        int index_to_start_adding = 0;
+        while (title_str[index_to_start_adding] != '\0') {
+            index_to_start_adding++;
+        }
+
+        // for (int i = 0; random_str[i] != '\0'; i++) {
+        //     title_str[index_to_start_adding++] = random_str[i];
+        // }
+
+        for (uint32 i = 0; fps_str[i] != '\0'; i++) {
+            title_str[index_to_start_adding++] = fps_str[i];
+        }
+
+        title_str[index_to_start_adding++] = ')';
+
+        title_str[index_to_start_adding++] = '\0';
+
+        SDL_SetWindowTitle(global_window, title_str);
+    }
+
+    l->counter_start_frame = counter_after_sleep;
+}
+
 SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
 {
     // Create an SDL texture to represent the square
@@ -134,10 +204,13 @@ int32 main(int32 argc, char* argv[])
     SDL_SetEventFilter(filterEvent, &event);
 
     Uint64 PERFORMANCE_FREQUENCY = SDL_GetPerformanceFrequency();
-    Uint64 counter_start_frame = SDL_GetPerformanceCounter();
+
+    Fps_Limiter fps_limiter = {};
+    fps_limiter.PERFORMANCE_FREQUENCY = PERFORMANCE_FREQUENCY;
+    fps_limiter.counter_start_frame = SDL_GetPerformanceCounter();
     // Sometimes we're going to oversleep, so we need to account for that potentially
-    real32 frame_time_debt_s = 0;
-    unsigned int counter = 0;
+    fps_limiter.frame_time_debt_s = 0;
+    fps_limiter.counter = 0;
 
     real32 angle = 0.0f;  // Rotation angle
     real32 dt_s = 0;
@@ -208,62 +281,7 @@ int32 main(int32 argc, char* argv[])
             global_did_resize = 0;
         }
 
-        Uint64 counter_end_frame = SDL_GetPerformanceCounter();
-
-        real32 frame_time_elapsed_s = ((real32)(counter_end_frame - counter_start_frame) / (real32)PERFORMANCE_FREQUENCY);
-
-        real32 sleep_time_s = (TARGET_TIME_PER_FRAME_S - frame_time_debt_s) - frame_time_elapsed_s;
-        if (sleep_time_s > 0) {
-            real32 sleep_time_ms = sleep_time_s * 1000.0f;
-            SDL_Delay((uint32)sleep_time_ms);
-        } else {
-            printf("Missed frame!\n");
-        }
-        Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
-        real32 actual_frame_time_s = ((real32)(counter_after_sleep - counter_start_frame) / (real32)PERFORMANCE_FREQUENCY);
-        
-        frame_time_debt_s = actual_frame_time_s - TARGET_TIME_PER_FRAME_S;
-        if (frame_time_debt_s < 0) {
-            frame_time_debt_s = 0;
-        }
-
-        real32 fps = 1.0f / actual_frame_time_s;
-        // std::cout << "fps: " << fps << std::endl;
-
-        counter++;
-        if (counter >= (uint32)TARGET_SCREEN_FPS) {
-            counter = 0;
-
-            char fps_str[20];  // Allocate enough space for the string
-            sprintf(fps_str, "%.2f", fps);
-
-            // Generate a random number in a range (for example, between 0 and 100)
-            int32 random_number = rand() % 101; // Generates a number between 0 and 100
-            char random_str[20];
-            sprintf(random_str, "%d", random_number);
-
-            char title_str[100] = "SDL Starter (FPS: ";
-            int index_to_start_adding = 0;
-            while (title_str[index_to_start_adding] != '\0') {
-                index_to_start_adding++;
-            }
-
-            // for (int i = 0; random_str[i] != '\0'; i++) {
-            //     title_str[index_to_start_adding++] = random_str[i];
-            // }
-
-            for (uint32 i = 0; fps_str[i] != '\0'; i++) {
-                title_str[index_to_start_adding++] = fps_str[i];
-            }
-
-            title_str[index_to_start_adding++] = ')';
-
-            title_str[index_to_start_adding++] = '\0';
-
-            SDL_SetWindowTitle(global_window, title_str);
-        }
-
-        counter_start_frame = counter_after_sleep;
+        limit_fps(&fps_limiter);
     }
 
     SDL_DestroyRenderer(global_renderer);
