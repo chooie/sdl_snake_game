@@ -9,7 +9,7 @@ if not exist build (
 )
 
 REM Compile main.cpp
-g++ -Wall -Werror -Wconversion -I vendor/SDL2/windows/include -L vendor/SDL2/windows/lib -o build\main.exe main.cpp -lmingw32 -lSDL2main -lSDL2 -lwinmm
+g++ -Wall -Werror -Wconversion -Wno-unused-but-set-variable -I vendor/SDL2/windows/include -L vendor/SDL2/windows/lib -o build\main.exe main.cpp -lmingw32 -lSDL2main -lSDL2 -lwinmm
 REM TODO: use -mwindows for release so it doesn't open a console
 
 REM Check if compilation was successful

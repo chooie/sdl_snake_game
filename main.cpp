@@ -10,6 +10,32 @@
 #endif
 // clang-format on
 
+struct Button_State
+{
+    bool is_down;
+    bool changed;
+};
+
+enum
+{
+    BUTTON_W,
+    BUTTON_A,
+    BUTTON_S,
+    BUTTON_D,
+    BUTTON_UP,
+    BUTTON_DOWN,
+    BUTTON_LEFT,
+    BUTTON_RIGHT,
+    BUTTON_ENTER,
+
+    BUTTON_COUNT,  // Should be the last item
+};
+
+struct Input
+{
+    Button_State buttons[BUTTON_COUNT];
+};
+
 int32 LOGICAL_WIDTH = 1280;
 int32 LOGICAL_HEIGHT = 720;
 real32 ABSOLUTE_ASPECT_RATIO = real32(LOGICAL_WIDTH) / (real32)LOGICAL_HEIGHT;
@@ -230,6 +256,7 @@ int32 main(int32 argc, char* argv[])
         createSquareTexture(global_renderer, window_width / 4);  // Create the texture for the square
 
     SDL_Event event;
+    Input input = {};
 
     SDL_SetEventFilter(filterEvent, &event);
 
@@ -245,24 +272,50 @@ int32 main(int32 argc, char* argv[])
 
     while (global_running)
     {
+        for (int i = 0; i < BUTTON_COUNT; i++)
+        {
+            input.buttons[i].changed = false;
+        }
+
         while (SDL_PollEvent(&event))
         {
             switch (event.type)
             {
                 case SDL_KEYDOWN:
                 {
+                    if (event.key.repeat == 0)  // Ignore repeat events
+                    {
+                        switch (event.key.keysym.sym)
+                        {
+                            case SDLK_w:
+                                printf("W key pressed\n");
+                                break;
+                            case SDLK_s:
+                                printf("S key pressed\n");
+                                break;
+                            case SDLK_a:
+                                printf("A key pressed\n");
+                                break;
+                            case SDLK_d:
+                                printf("D key pressed\n");
+                                break;
+                            default:
+                                printf("Key pressed: %s\n", SDL_GetKeyName(event.key.keysym.sym));
+                                break;
+                        }
+                    }
+
                     switch (event.key.keysym.sym)
                     {
                         case SDLK_ESCAPE:
                         {
-                            global_running = false;
+                            global_running = 0;
                         }
                         break;
-                        case SDLK_s:
-                        {
-                            SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
-                        }
-                        break;
+                        // case SDLK_s:
+                        // {
+                        //     SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
+                        // } break;
                         case SDLK_f:
                         {
                             int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN;
@@ -286,7 +339,7 @@ int32 main(int32 argc, char* argv[])
                     {
                         case SDL_WINDOWEVENT_CLOSE:
                         {
-                            global_running = false;
+                            global_running = 0;
                         }
                         break;
                     }
