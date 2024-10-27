@@ -12,20 +12,19 @@ function sdl {
 function rb {
     # Try to stop any running instances of "main.exe" without showing errors if it's not found
     Stop-Process -Name "main" -Force -ErrorAction SilentlyContinue
-    make
-    # Check if the previous command (make) succeeded
-    if ($?) {
-        # Only run this if make was successful
+    b
+    if ($LASTEXITCODE -eq 0) {
+        # Only run if build was successful
         run
     }
 }
 
 function run {
-    & "W:\sdl_starter\main.exe"
+    & "W:\sdl_starter\build\main.exe"
 }
 
 function b {
-    make
+    W:\sdl_starter\build-windows.bat
 }
 
 function hm {

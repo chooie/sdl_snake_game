@@ -7,7 +7,7 @@
             "label": "Build",
             "type": "shell",
             "windows": {
-                "command": "make"
+                "command": "b"
             },
             "group": {
                 "kind": "build",
