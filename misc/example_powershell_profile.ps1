@@ -20,7 +20,7 @@ function rb {
 }
 
 function run {
-    & "W:\sdl_starter\build\main.exe"
+    Start-Process "W:\sdl_starter\build\main.exe"
 }
 
 function b {
@@ -34,4 +34,18 @@ function hm {
 function gs {
     git add .
     git commit -m "Save"
+}
+
+function cim {
+    param (
+        [string]$message
+    )
+
+    if (-not $message) {
+        Write-Output "Please provide a commit message."
+        return
+    }
+
+    git add .
+    git commit -m "$message"
 }
