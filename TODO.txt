@@ -1,0 +1,15 @@
+TODO
+====
+- ✅ Move box around with keyboard
+- ❔Play sound
+- ❔Draw text
+- ❔Make a game prototype
+    e.g. Snake
+
+
+
+
+Nice-to-haves
+--------------
+- ❔Controller support
+- ❔Rebindable keys

@@ -139,31 +139,6 @@ SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
     return texture;
 }
 
-void render(SDL_Texture* square_texture, real32 angle)
-{
-    // Calculate the size of the square
-    int32 square_size = (window_width < window_height) ? window_width / 4 : window_height / 4;
-
-    // Calculate position to center the square
-    int32 square_x = (window_width - square_size) / 2;
-    int32 square_y = (window_height - square_size) / 2;
-
-    SDL_Rect dst_rect = {square_x, square_y, square_size, square_size};
-
-    // Clear the screen
-    SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
-    SDL_RenderClear(global_renderer);
-
-    // Center of the square for rotation
-    SDL_Point center = {square_size / 2, square_size / 2};
-
-    // Render the rotating square using SDL_RenderCopyEx
-    SDL_RenderCopyEx(global_renderer, square_texture, nullptr, &dst_rect, angle, &center, SDL_FLIP_NONE);
-
-    // Present the rendered content
-    SDL_RenderPresent(global_renderer);
-}
-
 SDL_Texture* global_square_texture;
 real32 global_angle;
 real32 global_dt_s;
@@ -173,37 +148,79 @@ Uint64 global_counter_before;
 #define pressed(b) input->buttons[b].is_down && input->buttons[b].changed
 #define released(b) (!input->buttons[b].is_down && input->buttons[b].changed)
 
+real32 ACCELERATION_POWER = 1000;
+
+bool32 is_first_run = 1;
+
+int32 global_square_x;
+int32 global_square_y;
+
 void main_work(Input* input)
 {
+    real32 accelerationX = 0;
+    real32 accelerationY = 0;
+
     if (is_down(BUTTON_W))
     {
+        accelerationY += -ACCELERATION_POWER;
         printf("Holding down W...\n");
     }
 
     if (is_down(BUTTON_A))
     {
+        accelerationX += -ACCELERATION_POWER;
         printf("Holding down A...\n");
     }
 
     if (is_down(BUTTON_S))
     {
+        accelerationY += ACCELERATION_POWER;
         printf("Holding down S...\n");
     }
 
     if (is_down(BUTTON_D))
     {
+        accelerationX += ACCELERATION_POWER;
         printf("Holding down D...\n");
     }
 
-    // if (pressed(BUTTON_W))
-    // {
-    //     printf("Pressed W\n");
-    // }
     Uint64 counter_now = SDL_GetPerformanceCounter();
     global_dt_s = ((real32)(counter_now - global_counter_before) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
     global_angle += 90.0f * global_dt_s;  // Rotate 90 degrees per second
+
     // Render the rotating square with the current angle
-    render(global_square_texture, global_angle);
+    {
+        // Calculate the size of the square
+        int32 square_size = (window_width < window_height) ? window_width / 4 : window_height / 4;
+
+        if (is_first_run)
+        {
+            is_first_run = 0;
+            global_square_x = (window_width - square_size) / 2;
+            global_square_y = (window_height - square_size) / 2;
+        }
+
+        global_square_x += (int32)(accelerationX * global_dt_s);
+        global_square_y += (int32)(accelerationY * global_dt_s);
+
+        SDL_Rect dst_rect = {global_square_x, global_square_y, square_size, square_size};
+
+        // Clear the screen
+        SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
+        SDL_RenderClear(global_renderer);
+
+        // Center of the square for rotation
+        SDL_Point center = {square_size / 2, square_size / 2};
+
+        // Render the rotating square using SDL_RenderCopyEx
+        SDL_RenderCopyEx(
+            global_renderer, global_square_texture, nullptr, &dst_rect, global_angle, &center, SDL_FLIP_NONE
+        );
+
+        // Present the rendered content
+        SDL_RenderPresent(global_renderer);
+    }
+
     global_counter_before = counter_now;
 
     limit_fps();
@@ -394,10 +411,14 @@ int32 main(int32 argc, char* argv[])
                             if (isFullScreen)
                             {
                                 SDL_SetWindowFullscreen(global_window, 0);
+                                SDL_ShowCursor(SDL_ENABLE);
+                                SDL_SetRelativeMouseMode(SDL_FALSE);
                             }
                             else
                             {
                                 SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                                SDL_ShowCursor(SDL_DISABLE);
+                                SDL_SetRelativeMouseMode(SDL_TRUE);
                             }
                         }
                         break;
