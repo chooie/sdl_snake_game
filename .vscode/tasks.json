@@ -18,7 +18,7 @@
             "label": "Run",
             "type": "shell",
             "windows": {
-                "command": ".\\sdl_starter.exe"
+                "command": ".\\build\\main.exe"
             },
             "problemMatcher": []
         },

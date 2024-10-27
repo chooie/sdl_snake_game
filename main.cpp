@@ -12,8 +12,8 @@
 
 struct Button_State
 {
-    bool is_down;
-    bool changed;
+    bool32 is_down;
+    bool32 changed;
 };
 
 enum
@@ -94,21 +94,12 @@ void limit_fps()
         char fps_str[20];  // Allocate enough space for the string
         sprintf(fps_str, "%.2f", fps);
 
-        // Generate a random number in a range (for example, between 0 and 100)
-        int32 random_number = rand() % 101;  // Generates a number between 0 and 100
-        char random_str[20];
-        sprintf(random_str, "%d", random_number);
-
         char title_str[100] = "SDL Starter (FPS: ";
         int index_to_start_adding = 0;
         while (title_str[index_to_start_adding] != '\0')
         {
             index_to_start_adding++;
         }
-
-        // for (int i = 0; random_str[i] != '\0'; i++) {
-        //     title_str[index_to_start_adding++] = random_str[i];
-        // }
 
         for (uint32 i = 0; fps_str[i] != '\0'; i++)
         {
@@ -178,8 +169,36 @@ real32 global_angle;
 real32 global_dt_s;
 Uint64 global_counter_before;
 
-void main_work()
+#define is_down(b) input->buttons[b].is_down
+#define pressed(b) input->buttons[b].is_down && input->buttons[b].changed
+#define released(b) (!input->buttons[b].is_down && input->buttons[b].changed)
+
+void main_work(Input* input)
 {
+    if (is_down(BUTTON_W))
+    {
+        printf("Holding down W...\n");
+    }
+
+    if (is_down(BUTTON_A))
+    {
+        printf("Holding down A...\n");
+    }
+
+    if (is_down(BUTTON_S))
+    {
+        printf("Holding down S...\n");
+    }
+
+    if (is_down(BUTTON_D))
+    {
+        printf("Holding down D...\n");
+    }
+
+    // if (pressed(BUTTON_W))
+    // {
+    //     printf("Pressed W\n");
+    // }
     Uint64 counter_now = SDL_GetPerformanceCounter();
     global_dt_s = ((real32)(counter_now - global_counter_before) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
     global_angle += 90.0f * global_dt_s;  // Rotate 90 degrees per second
@@ -192,6 +211,8 @@ void main_work()
 
 int32 filterEvent(void* userdata, SDL_Event* event)
 {
+    Input* input = static_cast<Input*>(userdata);
+
     if (event->type == SDL_WINDOWEVENT)
     {
         if (event->window.event == SDL_WINDOWEVENT_RESIZED)
@@ -201,7 +222,7 @@ int32 filterEvent(void* userdata, SDL_Event* event)
 
         if (event->window.event == SDL_WINDOWEVENT_RESIZED || event->window.event == SDL_WINDOWEVENT_EXPOSED)
         {
-            main_work();
+            main_work(input);
         }
     }
     return 1;  // Allow other events
@@ -258,7 +279,7 @@ int32 main(int32 argc, char* argv[])
     SDL_Event event;
     Input input = {};
 
-    SDL_SetEventFilter(filterEvent, &event);
+    SDL_SetEventFilter(filterEvent, &input);
 
     GLOBAL_PERFORMANCE_FREQUENCY = SDL_GetPerformanceFrequency();
 
@@ -283,26 +304,77 @@ int32 main(int32 argc, char* argv[])
             {
                 case SDL_KEYDOWN:
                 {
-                    if (event.key.repeat == 0)  // Ignore repeat events
+                    switch (event.key.keysym.sym)
                     {
-                        switch (event.key.keysym.sym)
+                        case SDLK_w:
                         {
-                            case SDLK_w:
-                                printf("W key pressed\n");
-                                break;
-                            case SDLK_s:
-                                printf("S key pressed\n");
-                                break;
-                            case SDLK_a:
-                                printf("A key pressed\n");
-                                break;
-                            case SDLK_d:
-                                printf("D key pressed\n");
-                                break;
-                            default:
-                                printf("Key pressed: %s\n", SDL_GetKeyName(event.key.keysym.sym));
-                                break;
+                            input.buttons[BUTTON_W].changed = input.buttons[BUTTON_W].is_down == 0;
+                            input.buttons[BUTTON_W].is_down = 1;
                         }
+                        break;
+
+                        case SDLK_a:
+                        {
+                            input.buttons[BUTTON_A].changed = input.buttons[BUTTON_A].is_down == 0;
+                            input.buttons[BUTTON_A].is_down = 1;
+                        }
+                        break;
+
+                        case SDLK_s:
+                        {
+                            input.buttons[BUTTON_S].changed = input.buttons[BUTTON_S].is_down == 0;
+                            input.buttons[BUTTON_S].is_down = 1;
+                        }
+                        break;
+
+                        case SDLK_d:
+                        {
+                            input.buttons[BUTTON_D].changed = input.buttons[BUTTON_D].is_down == 0;
+                            input.buttons[BUTTON_D].is_down = 1;
+                        }
+                        break;
+
+                        default:
+                            printf("Key pressed: %s\n", SDL_GetKeyName(event.key.keysym.sym));
+                            break;
+                    }
+                }
+                break;
+                case SDL_KEYUP:
+                {
+                    switch (event.key.keysym.sym)
+                    {
+                        case SDLK_w:
+                        {
+                            input.buttons[BUTTON_W].changed = input.buttons[BUTTON_W].is_down == 1;
+                            input.buttons[BUTTON_W].is_down = 0;
+                        }
+                        break;
+
+                        case SDLK_a:
+                        {
+                            input.buttons[BUTTON_A].changed = input.buttons[BUTTON_A].is_down == 1;
+                            input.buttons[BUTTON_A].is_down = 0;
+                        }
+                        break;
+
+                        case SDLK_s:
+                        {
+                            input.buttons[BUTTON_S].changed = input.buttons[BUTTON_S].is_down == 1;
+                            input.buttons[BUTTON_S].is_down = 0;
+                        }
+                        break;
+
+                        case SDLK_d:
+                        {
+                            input.buttons[BUTTON_D].changed = input.buttons[BUTTON_D].is_down == 1;
+                            input.buttons[BUTTON_D].is_down = 0;
+                        }
+                        break;
+
+                        default:
+                            printf("Key released: %s\n", SDL_GetKeyName(event.key.keysym.sym));
+                            break;
                     }
 
                     switch (event.key.keysym.sym)
@@ -354,7 +426,7 @@ int32 main(int32 argc, char* argv[])
             }
         }
 
-        main_work();
+        main_work(&input);
     }
 
     SDL_DestroyRenderer(global_renderer);
