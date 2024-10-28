@@ -1,9 +1,12 @@
 TODO
 ====
-- ✅ Move box around with keyboard
-- ❔Play sound
-- ❔Draw text
-- ❔Make a game prototype
+
+/ Move box around with keyboard
+? Make game consistent across window sizes
+    - I.e. I should move faster in a smaller window
+? Play sound
+? Draw text
+? Make a game prototype
     e.g. Snake
 
 
@@ -11,5 +14,5 @@ TODO
 
 Nice-to-haves
 --------------
-- ❔Controller support
-- ❔Rebindable keys
+? Controller support
+? Rebindable keys

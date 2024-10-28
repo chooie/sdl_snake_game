@@ -1,3 +1,5 @@
+#if !defined(COMMON_H_)
+
 #include <stdint.h>
 
 #define local_internal static
@@ -17,3 +19,6 @@ typedef uint64_t uint64;
 
 typedef float real32;
 typedef double real64;
+
+#define COMMON_H_
+#endif  // COMMON_H_

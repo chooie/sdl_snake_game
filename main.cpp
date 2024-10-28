@@ -28,6 +28,8 @@ enum
     BUTTON_RIGHT,
     BUTTON_ENTER,
 
+    BUTTON_SPACE,
+
     BUTTON_COUNT,  // Should be the last item
 };
 
@@ -55,6 +57,10 @@ Uint64 global_counter_start_frame;
 // Sometimes we're going to oversleep, so we need to account for that potentially
 real32 global_frame_time_debt_s;
 uint32 global_counter;
+SDL_Texture* global_square_texture;
+real32 global_angle;
+real32 global_dt_s;
+bool32 global_paused = 0;
 
 void limit_fps()
 {
@@ -78,6 +84,7 @@ void limit_fps()
         ((real32)(counter_after_sleep - global_counter_start_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
 
     global_frame_time_debt_s = actual_frame_time_s - TARGET_TIME_PER_FRAME_S;
+
     if (global_frame_time_debt_s < 0)
     {
         global_frame_time_debt_s = 0;
@@ -139,89 +146,31 @@ SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
     return texture;
 }
 
-SDL_Texture* global_square_texture;
-real32 global_angle;
-real32 global_dt_s;
-Uint64 global_counter_before;
-
 #define is_down(b) input->buttons[b].is_down
 #define pressed(b) input->buttons[b].is_down && input->buttons[b].changed
 #define released(b) (!input->buttons[b].is_down && input->buttons[b].changed)
 
-real32 ACCELERATION_POWER = 1000;
+#include "game.cpp"
 
-bool32 is_first_run = 1;
-
-int32 global_square_x;
-int32 global_square_y;
+Uint64 global_counter_last_frame;
 
 void main_work(Input* input)
 {
-    real32 accelerationX = 0;
-    real32 accelerationY = 0;
-
-    if (is_down(BUTTON_W))
+    if (pressed(BUTTON_SPACE))
     {
-        accelerationY += -ACCELERATION_POWER;
-        printf("Holding down W...\n");
+        global_paused = !global_paused;
     }
 
-    if (is_down(BUTTON_A))
+    if (!global_paused)
     {
-        accelerationX += -ACCELERATION_POWER;
-        printf("Holding down A...\n");
+        Uint64 counter_now = SDL_GetPerformanceCounter();
+
+        real32 dt_s = ((real32)(counter_now - global_counter_last_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
+        // printf("%f ms\n", dt_s * 1000);
+        update(input, dt_s);
     }
 
-    if (is_down(BUTTON_S))
-    {
-        accelerationY += ACCELERATION_POWER;
-        printf("Holding down S...\n");
-    }
-
-    if (is_down(BUTTON_D))
-    {
-        accelerationX += ACCELERATION_POWER;
-        printf("Holding down D...\n");
-    }
-
-    Uint64 counter_now = SDL_GetPerformanceCounter();
-    global_dt_s = ((real32)(counter_now - global_counter_before) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
-    global_angle += 90.0f * global_dt_s;  // Rotate 90 degrees per second
-
-    // Render the rotating square with the current angle
-    {
-        // Calculate the size of the square
-        int32 square_size = (window_width < window_height) ? window_width / 4 : window_height / 4;
-
-        if (is_first_run)
-        {
-            is_first_run = 0;
-            global_square_x = (window_width - square_size) / 2;
-            global_square_y = (window_height - square_size) / 2;
-        }
-
-        global_square_x += (int32)(accelerationX * global_dt_s);
-        global_square_y += (int32)(accelerationY * global_dt_s);
-
-        SDL_Rect dst_rect = {global_square_x, global_square_y, square_size, square_size};
-
-        // Clear the screen
-        SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
-        SDL_RenderClear(global_renderer);
-
-        // Center of the square for rotation
-        SDL_Point center = {square_size / 2, square_size / 2};
-
-        // Render the rotating square using SDL_RenderCopyEx
-        SDL_RenderCopyEx(
-            global_renderer, global_square_texture, nullptr, &dst_rect, global_angle, &center, SDL_FLIP_NONE
-        );
-
-        // Present the rendered content
-        SDL_RenderPresent(global_renderer);
-    }
-
-    global_counter_before = counter_now;
+    global_counter_last_frame = SDL_GetPerformanceCounter();
 
     limit_fps();
 }
@@ -306,7 +255,10 @@ int32 main(int32 argc, char* argv[])
 
     global_angle = 0.0f;  // Rotation angle
     global_dt_s = 0;
-    global_counter_before = SDL_GetPerformanceCounter();
+    global_counter_last_frame = SDL_GetPerformanceCounter();
+
+    // Might need this for antialiasing?
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
     while (global_running)
     {
@@ -351,6 +303,13 @@ int32 main(int32 argc, char* argv[])
                         }
                         break;
 
+                        case SDLK_SPACE:
+                        {
+                            input.buttons[BUTTON_SPACE].changed = input.buttons[BUTTON_SPACE].is_down == 0;
+                            input.buttons[BUTTON_SPACE].is_down = 1;
+                        }
+                        break;
+
                         default:
                             printf("Key pressed: %s\n", SDL_GetKeyName(event.key.keysym.sym));
                             break;
@@ -386,6 +345,13 @@ int32 main(int32 argc, char* argv[])
                         {
                             input.buttons[BUTTON_D].changed = input.buttons[BUTTON_D].is_down == 1;
                             input.buttons[BUTTON_D].is_down = 0;
+                        }
+                        break;
+
+                        case SDLK_SPACE:
+                        {
+                            input.buttons[BUTTON_SPACE].changed = input.buttons[BUTTON_SPACE].is_down == 1;
+                            input.buttons[BUTTON_SPACE].is_down = 0;
                         }
                         break;
 
