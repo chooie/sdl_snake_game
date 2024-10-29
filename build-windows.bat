@@ -29,7 +29,7 @@ set INCLUDE_PATH=%~dp0vendor\SDL2\windows\visual_studio\x64\include
 set LIB_PATH=%~dp0vendor\SDL2\windows\visual_studio\x64\lib
 
 REM Compile main.cpp
-cl /Zi /W4 /WX /wd4100 /MD /EHsc /D_CRT_SECURE_NO_WARNINGS %~dp0main.cpp /I %INCLUDE_PATH% /link -PDB:%filename% /LIBPATH:%LIB_PATH% SDL2.lib SDL2main.lib shell32.lib winmm.lib /SUBSYSTEM:CONSOLE
+cl /Zi /W4 /WX /wd4100 /wd4189 /MD /EHsc /D_CRT_SECURE_NO_WARNINGS %~dp0main.cpp /I %INCLUDE_PATH% /link -PDB:%filename% /LIBPATH:%LIB_PATH% SDL2.lib SDL2main.lib shell32.lib winmm.lib /SUBSYSTEM:CONSOLE
 REM TODO: use /SUBSYSTEM:WINDOWS for release to avoid opening a console
 
 REM Check if compilation was successful

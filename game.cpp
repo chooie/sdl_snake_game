@@ -1,4 +1,4 @@
-real32 ACCELERATION_POWER = 10000;
+real32 ACCELERATION_POWER = 4000;
 real32 friction = 10.0f;
 
 bool32 is_first_run = 1;
@@ -6,8 +6,10 @@ bool32 is_first_run = 1;
 real32 global_velocity_x = 0;
 real32 global_velocity_y = 0;
 
-int32 global_square_x;
-int32 global_square_y;
+real32 global_square_x;
+real32 global_square_y;
+
+real32 render_scale = 0.01f;
 
 void update(Input* input, real32 dt_s)
 {
@@ -42,23 +44,95 @@ void update(Input* input, real32 dt_s)
     acceleration_x -= global_velocity_x * friction;
     acceleration_y -= global_velocity_y * friction;
 
-    // Calculate the size of the square
-    int32 square_size = (window_width < window_height) ? window_width / 4 : window_height / 4;
-
     if (is_first_run)
     {
         is_first_run = 0;
-        global_square_x = (window_width - square_size) / 2;
-        global_square_y = (window_height - square_size) / 2;
+
+        // Coordinates -100 to +100 on x and y
+
+        global_square_x = 0;
+        global_square_y = 0;
     }
 
     global_velocity_x += acceleration_x * dt_s;
     global_velocity_y += acceleration_y * dt_s;
 
     // Kinematic Formula
-    global_square_x += (int32)(global_velocity_x * dt_s + (0.5f * acceleration_x * dt_s * dt_s));
-    global_square_y += (int32)(global_velocity_y * dt_s + (0.5f * acceleration_y * dt_s * dt_s));
+    global_square_x += global_velocity_x * dt_s + (0.5f * acceleration_x * dt_s * dt_s);
+    global_square_y += global_velocity_y * dt_s + (0.5f * acceleration_y * dt_s * dt_s);
 
+    printf("x: %.2f, y: %.2f\n", global_square_x, global_square_y);
+
+    real32 normalized_x = global_square_x;
+    real32 normalized_y = global_square_y;
+
+    real32 square_size = 10;
+
+    // Normalize coords to screen (50% -> 0.5)
+    if (window_width < window_height)
+    {
+        // Width is the constraining factor
+        normalized_x *= window_width * render_scale;
+        normalized_y *= window_width * render_scale;
+        square_size *= window_width * render_scale;
+    }
+    else
+    {
+        // Height is the constraining factor
+        normalized_x *= window_height * render_scale;
+        normalized_y *= window_height * render_scale;
+        square_size *= window_height * render_scale;
+    }
+
+    // We want coords to be (0,0) but map to the window coords
+    normalized_x += window_width / 2;
+    normalized_y += window_height / 2;
+
+    // Clear the screen
+    SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
+    SDL_RenderClear(global_renderer);
+
+    // Draw canvas that perfectly reflects aspect ratio
+    real32 width;
+    real32 height;
+
+    if ((real32)window_width / (real32)window_height > ABSOLUTE_ASPECT_RATIO)
+    {
+        // Window is wider than the desired aspect ratio
+        height = (real32)window_height;
+        width = height * ABSOLUTE_ASPECT_RATIO;
+    }
+    else
+    {
+        // Window is taller than the desired aspect ratio
+        width = (real32)window_width;
+        height = width / ABSOLUTE_ASPECT_RATIO;
+    }
+
+    SDL_Rect drawable_canvas;
+    drawable_canvas.x = (window_width - (int32)width) / 2;
+    drawable_canvas.y = (window_height - (int32)height) / 2;
+    drawable_canvas.w = (int32)width;
+    drawable_canvas.h = (int32)height;
+
+    // Set the clip rectangle to restrict rendering
+    SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
+
+    // Set the drawing color to blue (RGBA)
+    SDL_SetRenderDrawColor(global_renderer, 0, 0, 255, 255);
+    SDL_RenderFillRect(global_renderer, &drawable_canvas);
+
+    SDL_Rect red_square;
+    red_square.x = (int32)(normalized_x - (square_size / 2));
+    red_square.y = (int32)(normalized_y - (square_size / 2));
+    red_square.w = (int32)square_size;
+    red_square.h = (int32)square_size;
+
+    // Set the drawing color to red (RGBA)
+    SDL_SetRenderDrawColor(global_renderer, 255, 0, 0, 255);
+    SDL_RenderFillRect(global_renderer, &red_square);
+
+    /*
     global_angle += 90.0f * dt_s;  // Rotate 90 degrees per second
 
     if (global_angle >= 360.0f)
@@ -69,10 +143,8 @@ void update(Input* input, real32 dt_s)
 
     // Render the rotating square with the current angle
     {
-        // global_square_x += (int32)(acceleration_x * dt_s);
-        // global_square_y += (int32)(acceleration_y * dt_s);
-
-        SDL_Rect dst_rect = {global_square_x, global_square_y, square_size, square_size};
+        int32 square_size = 10;
+        SDL_Rect dst_rect = {normalized_x, normalized_y, square_size, square_size};
 
         // Clear the screen
         SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
@@ -85,8 +157,9 @@ void update(Input* input, real32 dt_s)
         SDL_RenderCopyEx(
             global_renderer, global_square_texture, nullptr, &dst_rect, global_angle, &center, SDL_FLIP_NONE
         );
-
-        // Present the rendered content
-        SDL_RenderPresent(global_renderer);
     }
+    */
+
+    // Present the rendered content
+    SDL_RenderPresent(global_renderer);
 }
