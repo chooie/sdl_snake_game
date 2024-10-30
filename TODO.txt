@@ -6,12 +6,15 @@ TODO
     / Scale to window 
     / Scale to canvas that conforms to fixed aspect ratio
 / Draw multiple shapes onto canvas
-? Separate simulation and render steps to work at different rates
+/ Separate simulation and render steps to work at different rates
     - I.e. fixed simulation step with any frame rate on the render
-? Play sound
 ? Draw text
+    - If I want to use actual fonts I probably have to use OpenGL?
+    - Simplest solution would be to draw boxes that look like letters (like the pong tutorial I did)
+    - I can use SDL_ttf apparently, too
 ? Make a game prototype
     e.g. Snake
+? Play sound
 
 
 

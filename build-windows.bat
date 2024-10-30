@@ -29,7 +29,7 @@ set INCLUDE_PATH=%~dp0vendor\SDL2\windows\visual_studio\x64\include
 set LIB_PATH=%~dp0vendor\SDL2\windows\visual_studio\x64\lib
 
 REM Compile main.cpp
-cl /Zi /W4 /WX /wd4100 /wd4189 /MD /EHsc /D_CRT_SECURE_NO_WARNINGS %~dp0main.cpp /I %INCLUDE_PATH% /link -PDB:%filename% /LIBPATH:%LIB_PATH% SDL2.lib SDL2main.lib shell32.lib winmm.lib /SUBSYSTEM:CONSOLE
+cl /Zi /W4 /WX /wd4100 /wd4189 /MD /EHsc /D_CRT_SECURE_NO_WARNINGS %~dp0main.cpp /I %INCLUDE_PATH% /link -PDB:%filename% /LIBPATH:%LIB_PATH% SDL2.lib SDL2main.lib SDL2_ttf.lib shell32.lib winmm.lib /SUBSYSTEM:CONSOLE
 REM TODO: use /SUBSYSTEM:WINDOWS for release to avoid opening a console
 
 REM Check if compilation was successful
@@ -42,8 +42,10 @@ if %errorlevel% neq 0 (
 
 popd
 
-REM Only copy SDL2.dll if the build directory was just created
+REM Only copy dlls if the build directory was just created
 if "%build_dir_created%"=="true" (
     echo Copying SDL2.dll to the build directory
     copy /Y %~dp0vendor\SDL2\windows\visual_studio\x64\lib\SDL2.dll build\
+    echo Copying SDL2_tff.dll to the build directory
+    copy /Y %~dp0vendor\SDL2\windows\visual_studio\x64\lib\SDL2_ttf.dll build\
 )

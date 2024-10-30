@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 #ifdef __WINDOWS__
 #include <windows.h>
@@ -61,7 +62,9 @@ real32 global_frame_time_debt_s;
 uint32 global_counter;
 bool32 global_paused = 0;
 Uint64 global_counter_last_frame;
-
+SDL_Rect global_text_rect;
+SDL_Surface* global_text_surface;
+SDL_Texture* global_text_texture;
 
 void limit_fps()
 {
@@ -81,6 +84,7 @@ void limit_fps()
         // printf("Missed frame!\n");
     }
     Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
+    global_counter_start_frame = counter_after_sleep;
     real32 actual_frame_time_s =
         ((real32)(counter_after_sleep - global_counter_start_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
 
@@ -120,8 +124,6 @@ void limit_fps()
 
         SDL_SetWindowTitle(global_window, title_str);
     }
-
-    global_counter_start_frame = counter_after_sleep;
 }
 
 #define is_down(b) input->buttons[b].is_down
@@ -153,6 +155,11 @@ int32 filterEvent(void* userdata, SDL_Event* event)
 int32 main(int32 argc, char* argv[])
 {
     SDL_Init(SDL_INIT_EVERYTHING);
+
+    if (TTF_Init() == -1) {
+        std::cerr << "Failed to initialize SDL_ttf: " << TTF_GetError() << std::endl;
+        return -1;
+    }
 
     // Might need this for antialiasing?
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
@@ -195,8 +202,23 @@ int32 main(int32 argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-   SDL_Texture* square_texture =
-        createSquareTexture(global_renderer, window_width / 4);  // Create the texture for the square
+    TTF_Font* font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 128);
+    if (font == nullptr) {
+        std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+        return -1;
+    }
+
+    SDL_Color text_color = {255, 255, 255};  // White color
+    global_text_surface = TTF_RenderText_Blended(font, "Hello, SDL!", text_color);
+    global_text_texture = SDL_CreateTextureFromSurface(global_renderer, global_text_surface);
+    SDL_FreeSurface(global_text_surface);
+
+    global_text_rect = {};
+    global_text_rect.x = 100;
+    global_text_rect.y = 100;
+    SDL_QueryTexture(global_text_texture, nullptr, nullptr, &global_text_rect.w, &global_text_rect.h);
+
+    SDL_Texture* square_texture = createSquareTexture(global_renderer, window_width / 4);
 
     SDL_Event event;
     Input input = {};

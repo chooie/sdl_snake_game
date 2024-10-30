@@ -138,6 +138,8 @@ void render(State* state, SDL_Texture* square_texture)
     Color_RGBA magenta = { 186, 139, 175, 255 };
     draw_square(drawable_canvas, 75, 0, 10, magenta);
 
+    SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
+
     // Present the rendered content
     SDL_RenderPresent(global_renderer);
 }
