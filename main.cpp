@@ -45,6 +45,8 @@ real32 ABSOLUTE_ASPECT_RATIO = (real32)LOGICAL_WIDTH / (real32)LOGICAL_HEIGHT;
 int32 window_width = LOGICAL_WIDTH;
 int32 window_height = LOGICAL_HEIGHT;
 
+real32 SIMULATION_DELTA_TIME_S = 0.01f;
+
 int32 TARGET_SCREEN_FPS = 60;
 real32 TARGET_TIME_PER_FRAME_S = 1.f / (real32)TARGET_SCREEN_FPS;
 real32 TARGET_TIME_PER_FRAME_MS = 1000.f / (real32)TARGET_SCREEN_FPS;
@@ -61,6 +63,8 @@ SDL_Texture* global_square_texture;
 real32 global_angle;
 real32 global_dt_s;
 bool32 global_paused = 0;
+Uint64 global_counter_last_frame;
+
 
 void limit_fps()
 {
@@ -123,6 +127,12 @@ void limit_fps()
     global_counter_start_frame = counter_after_sleep;
 }
 
+#define is_down(b) input->buttons[b].is_down
+#define pressed(b) input->buttons[b].is_down && input->buttons[b].changed
+#define released(b) (!input->buttons[b].is_down && input->buttons[b].changed)
+
+#include "game.cpp"
+
 SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
 {
     // Create an SDL texture to represent the square
@@ -146,33 +156,123 @@ SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
     return texture;
 }
 
-#define is_down(b) input->buttons[b].is_down
-#define pressed(b) input->buttons[b].is_down && input->buttons[b].changed
-#define released(b) (!input->buttons[b].is_down && input->buttons[b].changed)
-
-#include "game.cpp"
-
-Uint64 global_counter_last_frame;
-
-void main_work(Input* input)
+struct Color_RGBA
 {
-    if (pressed(BUTTON_SPACE))
+    uint8 red;
+    uint8 green;
+    uint8 blue;
+    uint8 alpha;
+};
+
+real32 render_scale = 0.01f;
+
+/*
+Draw from world space to canvas in window
+Coords are in -100 to 100 space in x direction
+Because the aspect ratio is 16 / 9, coords are -56.25 to 56.25 in y direction
+*/
+void draw_square(SDL_Rect drawable_canvas,
+                 real32 world_space_x, real32 world_space_y,
+                 real32 world_space_size,
+                 Color_RGBA color)
+{
+    real32 normalized_x = world_space_x * render_scale;
+    real32 normalized_y = world_space_y * render_scale;
+
+    real32 actual_x = drawable_canvas.x +
+                      (drawable_canvas.w / 2) +
+                      (normalized_x * drawable_canvas.w / 2);
+    real32 actual_y = drawable_canvas.y +
+                      (drawable_canvas.h / 2) +
+                      // Account for width being wider than height
+                      (normalized_y * drawable_canvas.h / 2 * ABSOLUTE_ASPECT_RATIO);
+    real32 actual_square_size = world_space_size * render_scale * drawable_canvas.w;
+
+    SDL_Rect red_square = {};
+    red_square.x = (int32)(actual_x - (actual_square_size / 2));
+    red_square.y = (int32)(actual_y - (actual_square_size / 2));
+    red_square.w = (int32)actual_square_size;
+    red_square.h = (int32)actual_square_size;
+
+    // Set the drawing color to red (RGBA)
+    SDL_SetRenderDrawColor(global_renderer, color.red, color.green, color.blue, color.alpha);
+    SDL_RenderFillRect(global_renderer, &red_square);
+}
+
+void render(State* state)
+{
+    // Clear the screen
+    SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
+    SDL_RenderClear(global_renderer);
+
+    // Draw canvas that perfectly reflects aspect ratio
+    real32 canvas_width;
+    real32 canvas_height;
+
+    if ((real32)window_width / (real32)window_height > ABSOLUTE_ASPECT_RATIO)
     {
-        global_paused = !global_paused;
+        // Window is wider than the desired aspect ratio
+        canvas_height = (real32)window_height;
+        canvas_width = canvas_height * ABSOLUTE_ASPECT_RATIO;
+    }
+    else
+    {
+        // Window is taller than the desired aspect ratio
+        canvas_width = (real32)window_width;
+        canvas_height = canvas_width / ABSOLUTE_ASPECT_RATIO;
     }
 
-    if (!global_paused)
-    {
-        Uint64 counter_now = SDL_GetPerformanceCounter();
+    SDL_Rect drawable_canvas;
+    drawable_canvas.x = (window_width - (int32)canvas_width) / 2;
+    drawable_canvas.y = (window_height - (int32)canvas_height) / 2;
+    drawable_canvas.w = (int32)canvas_width;
+    drawable_canvas.h = (int32)canvas_height;
 
-        real32 dt_s = ((real32)(counter_now - global_counter_last_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
-        // printf("%f ms\n", dt_s * 1000);
-        update(input, dt_s);
+    // Set the clip rectangle to restrict rendering
+    SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
+
+    // Set the drawing color to blue (RGBA)
+    SDL_SetRenderDrawColor(global_renderer, 0, 0, 255, 255);
+    SDL_RenderFillRect(global_renderer, &drawable_canvas);
+
+    Color_RGBA red = { 255, 0, 0, 255 };
+    draw_square(drawable_canvas, state->pos_x, state->pos_y, 10, red);
+
+    /*
+    global_angle += 90.0f * dt_s;  // Rotate 90 degrees per second
+    if (global_angle >= 360.0f)
+    {
+        // Keep angle constrained
+        global_angle -= 360.0f;
     }
 
-    global_counter_last_frame = SDL_GetPerformanceCounter();
+    // Render the rotating square with the current angle
+    {
+        SDL_Rect dst_rect = {};
+        dst_rect.x = (int32)(actual_x - (actual_square_size / 2));
+        dst_rect.y = (int32)(actual_y - (actual_square_size / 2));
+        dst_rect.w = (int32)actual_square_size;
+        dst_rect.h = (int32)actual_square_size;
 
-    limit_fps();
+        // Center of the square for rotation
+        SDL_Point center = {(int32)(actual_square_size / 2), (int32)(actual_square_size / 2)};
+
+        // Render the rotating square using SDL_RenderCopyEx
+        SDL_RenderCopyEx(global_renderer,
+                         global_square_texture,
+                         nullptr,
+                         &dst_rect,
+                         global_angle,
+                         &center,
+                         SDL_FLIP_NONE);
+    }
+    */
+
+    Color_RGBA purple = { 255, 0, 255, 255 };
+    draw_square(drawable_canvas, 75, 0, 10, purple);
+
+    // Present the rendered content
+    SDL_RenderPresent(global_renderer);
 }
 
 int32 filterEvent(void* userdata, SDL_Event* event)
@@ -188,7 +288,7 @@ int32 filterEvent(void* userdata, SDL_Event* event)
 
         if (event->window.event == SDL_WINDOWEVENT_RESIZED || event->window.event == SDL_WINDOWEVENT_EXPOSED)
         {
-            main_work(input);
+            // main_work(input);
         }
     }
     return 1;  // Allow other events
@@ -197,6 +297,9 @@ int32 filterEvent(void* userdata, SDL_Event* event)
 int32 main(int32 argc, char* argv[])
 {
     SDL_Init(SDL_INIT_EVERYTHING);
+
+    // Might need this for antialiasing?
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
     // const char* platform = SDL_GetPlatform();
     // std::cout << "Platform " << platform << std::endl;
@@ -210,26 +313,23 @@ int32 main(int32 argc, char* argv[])
     SDL_SetHint(SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES, "1");
 #endif
 
-    global_window = SDL_CreateWindow(
-        "SDL Starter",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        LOGICAL_WIDTH,
-        LOGICAL_HEIGHT,
-        // TODO: how do I make stuff scale for high dpi devices?
-        /*SDL_WINDOW_ALLOW_HIGHDPI | */
-        SDL_WINDOW_RESIZABLE
-    );
+    global_window = SDL_CreateWindow("SDL Starter",
+                                     SDL_WINDOWPOS_CENTERED,
+                                     SDL_WINDOWPOS_CENTERED,
+                                     LOGICAL_WIDTH,
+                                     LOGICAL_HEIGHT,
+                                     // TODO: how do I make stuff scale for high dpi devices?
+                                     /*SDL_WINDOW_ALLOW_HIGHDPI | */
+                                     SDL_WINDOW_RESIZABLE);
     if (!global_window)
     {
         std::cout << "Could not create window: " << SDL_GetError() << std::endl;
         return 1;
     }
 
-    global_renderer = SDL_CreateRenderer(
-        global_window, -1, SDL_RENDERER_ACCELERATED
-        // No VSYNC for now as it make moving the window sluggish on MacOS
-        /*| SDL_RENDERER_PRESENTVSYNC*/
+    global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED
+                                         // No VSYNC for now as it make moving the window sluggish on MacOS
+                                         /*| SDL_RENDERER_PRESENTVSYNC*/
     );
     if (!global_renderer)
     {
@@ -257,8 +357,11 @@ int32 main(int32 argc, char* argv[])
     global_dt_s = 0;
     global_counter_last_frame = SDL_GetPerformanceCounter();
 
-    // Might need this for antialiasing?
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+    real64 simulation_time_elapsed_s = 0.0;
+    real32 accumulator_s = 0.0f;
+
+    State previous_state = {};
+    State current_state = {};
 
     while (global_running)
     {
@@ -408,12 +511,47 @@ int32 main(int32 argc, char* argv[])
                 case SDL_QUIT:
                 {
                     global_running = false;
-                    break;
-                }
+                } break;
             }
         }
 
-        main_work(&input);
+        if (input.buttons[BUTTON_SPACE].is_down && input.buttons[BUTTON_SPACE].changed)
+        {
+            global_paused = !global_paused;
+        }
+
+        if (!global_paused)
+        {
+            Uint64 counter_now = SDL_GetPerformanceCounter();
+
+            real32 frame_time_s = ((real32)(counter_now - global_counter_last_frame)
+                                   /
+                                   (real32)GLOBAL_PERFORMANCE_FREQUENCY);
+            global_counter_last_frame = counter_now;
+
+            if (frame_time_s > 0.25f)
+            {
+                // Prevent "spiraling" (exessive frame accumulation) in case of a big lag spike.
+                frame_time_s = 0.25f;
+            }
+
+            accumulator_s += frame_time_s;
+
+            while (accumulator_s >= SIMULATION_DELTA_TIME_S)
+            {   // Simulation 'consumes' whatever time is given to it based on the render rate
+                previous_state = current_state;
+                simulate(&current_state, &input, simulation_time_elapsed_s, SIMULATION_DELTA_TIME_S);
+                simulation_time_elapsed_s += SIMULATION_DELTA_TIME_S;
+                accumulator_s -= SIMULATION_DELTA_TIME_S;
+            }
+        }
+
+        real32 alpha = accumulator_s / SIMULATION_DELTA_TIME_S;
+        State state = current_state * alpha + previous_state * (1.0f - alpha);
+
+        render(&state);
+
+        limit_fps();
     }
 
     SDL_DestroyRenderer(global_renderer);

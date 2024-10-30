@@ -5,7 +5,9 @@ TODO
 / Make game consistent across window sizes
     / Scale to window 
     / Scale to canvas that conforms to fixed aspect ratio
-? Draw multiple shapes onto canvas
+/ Draw multiple shapes onto canvas
+? Separate simulation and render steps to work at different rates
+    - I.e. fixed simulation step with any frame rate on the render
 ? Play sound
 ? Draw text
 ? Make a game prototype
