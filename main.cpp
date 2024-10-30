@@ -59,9 +59,6 @@ Uint64 global_counter_start_frame;
 // Sometimes we're going to oversleep, so we need to account for that potentially
 real32 global_frame_time_debt_s;
 uint32 global_counter;
-SDL_Texture* global_square_texture;
-real32 global_angle;
-real32 global_dt_s;
 bool32 global_paused = 0;
 Uint64 global_counter_last_frame;
 
@@ -132,148 +129,7 @@ void limit_fps()
 #define released(b) (!input->buttons[b].is_down && input->buttons[b].changed)
 
 #include "game.cpp"
-
-SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
-{
-    // Create an SDL texture to represent the square
-    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, size, size);
-
-    // Set the texture as the rendering target
-    SDL_SetRenderTarget(renderer, texture);
-
-    // Clear the texture (make it transparent)
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);  // Fully transparent
-    SDL_RenderClear(renderer);
-
-    // Set the color of the square (red)
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);  // Red color
-    SDL_Rect square = {0, 0, size, size};              // The square fills the texture
-    SDL_RenderFillRect(renderer, &square);
-
-    // Reset the render target back to the default window
-    SDL_SetRenderTarget(renderer, nullptr);
-
-    return texture;
-}
-
-struct Color_RGBA
-{
-    uint8 red;
-    uint8 green;
-    uint8 blue;
-    uint8 alpha;
-};
-
-real32 render_scale = 0.01f;
-
-/*
-Draw from world space to canvas in window
-Coords are in -100 to 100 space in x direction
-Because the aspect ratio is 16 / 9, coords are -56.25 to 56.25 in y direction
-*/
-void draw_square(SDL_Rect drawable_canvas,
-                 real32 world_space_x, real32 world_space_y,
-                 real32 world_space_size,
-                 Color_RGBA color)
-{
-    real32 normalized_x = world_space_x * render_scale;
-    real32 normalized_y = world_space_y * render_scale;
-
-    real32 actual_x = drawable_canvas.x +
-                      (drawable_canvas.w / 2) +
-                      (normalized_x * drawable_canvas.w / 2);
-    real32 actual_y = drawable_canvas.y +
-                      (drawable_canvas.h / 2) +
-                      // Account for width being wider than height
-                      (normalized_y * drawable_canvas.h / 2 * ABSOLUTE_ASPECT_RATIO);
-    real32 actual_square_size = world_space_size * render_scale * drawable_canvas.w;
-
-    SDL_Rect red_square = {};
-    red_square.x = (int32)(actual_x - (actual_square_size / 2));
-    red_square.y = (int32)(actual_y - (actual_square_size / 2));
-    red_square.w = (int32)actual_square_size;
-    red_square.h = (int32)actual_square_size;
-
-    // Set the drawing color to red (RGBA)
-    SDL_SetRenderDrawColor(global_renderer, color.red, color.green, color.blue, color.alpha);
-    SDL_RenderFillRect(global_renderer, &red_square);
-}
-
-void render(State* state)
-{
-    // Clear the screen
-    SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
-    SDL_RenderClear(global_renderer);
-
-    // Draw canvas that perfectly reflects aspect ratio
-    real32 canvas_width;
-    real32 canvas_height;
-
-    if ((real32)window_width / (real32)window_height > ABSOLUTE_ASPECT_RATIO)
-    {
-        // Window is wider than the desired aspect ratio
-        canvas_height = (real32)window_height;
-        canvas_width = canvas_height * ABSOLUTE_ASPECT_RATIO;
-    }
-    else
-    {
-        // Window is taller than the desired aspect ratio
-        canvas_width = (real32)window_width;
-        canvas_height = canvas_width / ABSOLUTE_ASPECT_RATIO;
-    }
-
-    SDL_Rect drawable_canvas;
-    drawable_canvas.x = (window_width - (int32)canvas_width) / 2;
-    drawable_canvas.y = (window_height - (int32)canvas_height) / 2;
-    drawable_canvas.w = (int32)canvas_width;
-    drawable_canvas.h = (int32)canvas_height;
-
-    // Set the clip rectangle to restrict rendering
-    SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
-
-    // Set the drawing color to blue (RGBA)
-    SDL_SetRenderDrawColor(global_renderer, 0, 0, 255, 255);
-    SDL_RenderFillRect(global_renderer, &drawable_canvas);
-
-    Color_RGBA red = { 255, 0, 0, 255 };
-    draw_square(drawable_canvas, state->pos_x, state->pos_y, 10, red);
-
-    /*
-    global_angle += 90.0f * dt_s;  // Rotate 90 degrees per second
-    if (global_angle >= 360.0f)
-    {
-        // Keep angle constrained
-        global_angle -= 360.0f;
-    }
-
-    // Render the rotating square with the current angle
-    {
-        SDL_Rect dst_rect = {};
-        dst_rect.x = (int32)(actual_x - (actual_square_size / 2));
-        dst_rect.y = (int32)(actual_y - (actual_square_size / 2));
-        dst_rect.w = (int32)actual_square_size;
-        dst_rect.h = (int32)actual_square_size;
-
-        // Center of the square for rotation
-        SDL_Point center = {(int32)(actual_square_size / 2), (int32)(actual_square_size / 2)};
-
-        // Render the rotating square using SDL_RenderCopyEx
-        SDL_RenderCopyEx(global_renderer,
-                         global_square_texture,
-                         nullptr,
-                         &dst_rect,
-                         global_angle,
-                         &center,
-                         SDL_FLIP_NONE);
-    }
-    */
-
-    Color_RGBA purple = { 255, 0, 255, 255 };
-    draw_square(drawable_canvas, 75, 0, 10, purple);
-
-    // Present the rendered content
-    SDL_RenderPresent(global_renderer);
-}
+#include "render.cpp"
 
 int32 filterEvent(void* userdata, SDL_Event* event)
 {
@@ -339,7 +195,7 @@ int32 main(int32 argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    global_square_texture =
+   SDL_Texture* square_texture =
         createSquareTexture(global_renderer, window_width / 4);  // Create the texture for the square
 
     SDL_Event event;
@@ -353,8 +209,6 @@ int32 main(int32 argc, char* argv[])
     global_frame_time_debt_s = 0;
     global_counter = 0;
 
-    global_angle = 0.0f;  // Rotation angle
-    global_dt_s = 0;
     global_counter_last_frame = SDL_GetPerformanceCounter();
 
     real64 simulation_time_elapsed_s = 0.0;
@@ -372,97 +226,37 @@ int32 main(int32 argc, char* argv[])
 
         while (SDL_PollEvent(&event))
         {
-            switch (event.type)
+            switch(event.type)
             {
                 case SDL_KEYDOWN:
-                {
-                    switch (event.key.keysym.sym)
-                    {
-                        case SDLK_w:
-                        {
-                            input.buttons[BUTTON_W].changed = input.buttons[BUTTON_W].is_down == 0;
-                            input.buttons[BUTTON_W].is_down = 1;
-                        }
-                        break;
-
-                        case SDLK_a:
-                        {
-                            input.buttons[BUTTON_A].changed = input.buttons[BUTTON_A].is_down == 0;
-                            input.buttons[BUTTON_A].is_down = 1;
-                        }
-                        break;
-
-                        case SDLK_s:
-                        {
-                            input.buttons[BUTTON_S].changed = input.buttons[BUTTON_S].is_down == 0;
-                            input.buttons[BUTTON_S].is_down = 1;
-                        }
-                        break;
-
-                        case SDLK_d:
-                        {
-                            input.buttons[BUTTON_D].changed = input.buttons[BUTTON_D].is_down == 0;
-                            input.buttons[BUTTON_D].is_down = 1;
-                        }
-                        break;
-
-                        case SDLK_SPACE:
-                        {
-                            input.buttons[BUTTON_SPACE].changed = input.buttons[BUTTON_SPACE].is_down == 0;
-                            input.buttons[BUTTON_SPACE].is_down = 1;
-                        }
-                        break;
-
-                        default:
-                            printf("Key pressed: %s\n", SDL_GetKeyName(event.key.keysym.sym));
-                            break;
-                    }
-                }
-                break;
                 case SDL_KEYUP:
                 {
                     switch (event.key.keysym.sym)
                     {
-                        case SDLK_w:
-                        {
-                            input.buttons[BUTTON_W].changed = input.buttons[BUTTON_W].is_down == 1;
-                            input.buttons[BUTTON_W].is_down = 0;
-                        }
-                        break;
-
-                        case SDLK_a:
-                        {
-                            input.buttons[BUTTON_A].changed = input.buttons[BUTTON_A].is_down == 1;
-                            input.buttons[BUTTON_A].is_down = 0;
-                        }
-                        break;
-
-                        case SDLK_s:
-                        {
-                            input.buttons[BUTTON_S].changed = input.buttons[BUTTON_S].is_down == 1;
-                            input.buttons[BUTTON_S].is_down = 0;
-                        }
-                        break;
-
-                        case SDLK_d:
-                        {
-                            input.buttons[BUTTON_D].changed = input.buttons[BUTTON_D].is_down == 1;
-                            input.buttons[BUTTON_D].is_down = 0;
-                        }
-                        break;
-
-                        case SDLK_SPACE:
-                        {
-                            input.buttons[BUTTON_SPACE].changed = input.buttons[BUTTON_SPACE].is_down == 1;
-                            input.buttons[BUTTON_SPACE].is_down = 0;
-                        }
-                        break;
-
-                        default:
-                            printf("Key released: %s\n", SDL_GetKeyName(event.key.keysym.sym));
-                            break;
+#define process_input(button, sdl_key)\
+case sdl_key: {\
+    if (event.type == SDL_KEYDOWN)\
+    {\
+        input.buttons[button].changed = input.buttons[button].is_down == 0;\
+        input.buttons[button].is_down = 1;\
+    } else {\
+        input.buttons[button].changed = input.buttons[button].is_down == 1;\
+        input.buttons[button].is_down = 0;\
+    }\
+} break;
+                        process_input(BUTTON_W, SDLK_w);
+                        process_input(BUTTON_A, SDLK_a);
+                        process_input(BUTTON_S, SDLK_s);
+                        process_input(BUTTON_D, SDLK_d);
+                        process_input(BUTTON_SPACE, SDLK_SPACE);
                     }
+                } break;
+            }
 
+            switch (event.type)
+            {
+                case SDL_KEYUP:
+                {
                     switch (event.key.keysym.sym)
                     {
                         case SDLK_ESCAPE:
@@ -520,8 +314,13 @@ int32 main(int32 argc, char* argv[])
             global_paused = !global_paused;
         }
 
+        if (global_paused) {
+            global_counter_last_frame = SDL_GetPerformanceCounter();
+        }
+
         if (!global_paused)
         {
+            // https://gafferongames.com/post/fix_your_timestep/
             Uint64 counter_now = SDL_GetPerformanceCounter();
 
             real32 frame_time_s = ((real32)(counter_now - global_counter_last_frame)
@@ -543,13 +342,17 @@ int32 main(int32 argc, char* argv[])
                 simulate(&current_state, &input, simulation_time_elapsed_s, SIMULATION_DELTA_TIME_S);
                 simulation_time_elapsed_s += SIMULATION_DELTA_TIME_S;
                 accumulator_s -= SIMULATION_DELTA_TIME_S;
+
+                // printf("Timer: %.2f\n", simulation_time_elapsed_s);
             }
         }
 
         real32 alpha = accumulator_s / SIMULATION_DELTA_TIME_S;
+        // Interpolate between the current state and previous state
+        // NOTE: the render always lags by about a frame
         State state = current_state * alpha + previous_state * (1.0f - alpha);
 
-        render(&state);
+        render(&state, square_texture);
 
         limit_fps();
     }
