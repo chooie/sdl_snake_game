@@ -209,14 +209,17 @@ int32 main(int32 argc, char* argv[])
     }
 
     SDL_Color text_color = {255, 255, 255};  // White color
-    global_text_surface = TTF_RenderText_Blended(font, "Hello, SDL!", text_color);
+    const char* text = "Help! I'm trapped in some empty hellscape.";
+    global_text_surface = TTF_RenderText_Blended(font, text, text_color);
     global_text_texture = SDL_CreateTextureFromSurface(global_renderer, global_text_surface);
     SDL_FreeSurface(global_text_surface);
 
     global_text_rect = {};
     global_text_rect.x = 100;
     global_text_rect.y = 100;
-    SDL_QueryTexture(global_text_texture, nullptr, nullptr, &global_text_rect.w, &global_text_rect.h);
+    // TTF_SetFontSize(font, 24);
+    TTF_SizeText(font, text, &global_text_rect.w, &global_text_rect.h);
+    // SDL_QueryTexture(global_text_texture, nullptr, nullptr, &global_text_rect.w, &global_text_rect.h);
 
     SDL_Texture* square_texture = createSquareTexture(global_renderer, window_width / 4);
 
