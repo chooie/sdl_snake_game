@@ -39,7 +39,6 @@ if %errorlevel% neq 0 (
 ) else (
     echo Compilation succeeded.
 )
-
 popd
 
 REM Only copy dlls if the build directory was just created

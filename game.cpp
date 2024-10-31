@@ -79,5 +79,5 @@ void simulate(State* state, Input* input, real64 simulation_time_elapsed, real32
         state->angle -= 360.0f;
     }
 
-    printf("x: %.2f, y: %.2f\n", state->pos_x, state->pos_y);
+    // printf("x: %.2f, y: %.2f\n", state->pos_x, state->pos_y);
 }
