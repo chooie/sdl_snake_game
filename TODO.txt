@@ -8,10 +8,10 @@ TODO
 / Draw multiple shapes onto canvas
 / Separate simulation and render steps to work at different rates
     - I.e. fixed simulation step with any frame rate on the render
-? Draw text
-    - If I want to use actual fonts I probably have to use OpenGL?
-    - Simplest solution would be to draw boxes that look like letters (like the pong tutorial I did)
-    - I can use SDL_ttf apparently, too
+/ Draw text
+    x If I want to use actual fonts I probably have to use OpenGL?
+    x Simplest solution would be to draw boxes that look like letters (like the pong tutorial I did)
+    / I can use SDL_ttf apparently, too
 ? Get rid of all the duplicate SDL2 includes
 ? Make a game prototype
     e.g. Snake

@@ -247,11 +247,6 @@ void render(State* state, SDL_Texture* square_texture)
                          &center,
                          SDL_FLIP_NONE);
     }
-
-    Color_RGBA magenta = { 186, 139, 175, 255 };
-    draw_square_old(drawable_canvas, 75, 0, 10, magenta);
-
-    // SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
     
     // Example text rendering
     SDL_Color white = {255, 255, 255, 255};
@@ -262,6 +257,8 @@ void render(State* state, SDL_Texture* square_texture)
 
     render_text(state, drawable_canvas, message, global_font, text_world_x, text_world_y, text_world_size, white);
     */
+
+    SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
 
     // Present the rendered content
     SDL_RenderPresent(global_renderer);

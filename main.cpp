@@ -214,7 +214,6 @@ int32 main(int32 argc, char* argv[])
         return -1;
     }
 
-    /*
     SDL_Color text_color = {255, 255, 255};  // White color
     const char* text = "Help! I'm trapped in some empty hellscape.";
     global_text_surface = TTF_RenderText_Blended(global_font, text, text_color);
@@ -222,12 +221,19 @@ int32 main(int32 argc, char* argv[])
     SDL_FreeSurface(global_text_surface);
 
     global_text_rect = {};
-    global_text_rect.x = 100;
-    global_text_rect.y = 100;
-    // TTF_SetFontSize(font, 24);
+    global_text_rect.y = 0;
+    // TTF_SetFontSize(global_font, 512);
     TTF_SizeText(global_font, text, &global_text_rect.w, &global_text_rect.h);
+
+    real32 desired_width = 1000.0f;
+    real32 text_aspect_ratio = (real32)global_text_rect.w / (real32)global_text_rect.h;
+    global_text_rect.w = (int32)desired_width;
+
+    global_text_rect.h = int32(desired_width / text_aspect_ratio);
+
+    global_text_rect.x = (LOGICAL_WIDTH / 2) - global_text_rect.w / 2;
+    
     // SDL_QueryTexture(global_text_texture, nullptr, nullptr, &global_text_rect.w, &global_text_rect.h);
-    */
 
     SDL_Texture* square_texture = createSquareTexture(global_renderer, window_width / 4);
 
@@ -393,6 +399,7 @@ case sdl_key: {\
         #endif
     }
 
+    TTF_CloseFont(global_font);
     SDL_DestroyRenderer(global_renderer);
     SDL_DestroyWindow(global_window);
     TTF_Quit();
