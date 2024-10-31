@@ -85,9 +85,11 @@ void limit_fps()
         // printf("Missed frame!\n");
     }
     Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
-    global_counter_start_frame = counter_after_sleep;
     real32 actual_frame_time_s =
         ((real32)(counter_after_sleep - global_counter_start_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
+    // Set this for the next iteration
+    global_counter_start_frame = counter_after_sleep;
+
 
     global_frame_time_debt_s = actual_frame_time_s - TARGET_TIME_PER_FRAME_S;
 
