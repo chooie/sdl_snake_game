@@ -192,8 +192,10 @@ int32 main(int32 argc, char* argv[])
     }
 
     global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED
-                                         // No VSYNC for now as it make moving the window sluggish on MacOS
-                                         /*| SDL_RENDERER_PRESENTVSYNC*/
+                                        #ifdef __APPLE__
+                                         // Need to run at VSYNC on a Mac as it's choppy otherwise
+                                         | SDL_RENDERER_PRESENTVSYNC
+                                        #endif
     );
     if (!global_renderer)
     {
@@ -385,7 +387,10 @@ case sdl_key: {\
 
         render(&state, square_texture);
 
+        /* We need to run with VSYNC on a mac as it's super choppy otherwise */
+        #ifndef __APPLE__
         limit_fps();
+        #endif
     }
 
     SDL_DestroyRenderer(global_renderer);
