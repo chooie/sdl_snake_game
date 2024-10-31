@@ -1,3 +1,6 @@
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+
 SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
 {
     // Create an SDL texture to represent the square
@@ -63,6 +66,60 @@ void draw_square(SDL_Rect drawable_canvas,
     SDL_RenderFillRect(global_renderer, &red_square);
 }
 
+// Function to create a text texture
+SDL_Texture* createTextTexture(SDL_Renderer* renderer,
+                               TTF_Font* font,
+                               const char* text,
+                               SDL_Color color,
+                               SDL_Rect& text_rect,
+                               real32 world_space_size)
+{
+    // Create a surface for the text
+    SDL_Surface* textSurface = TTF_RenderText_Blended(font, text, color);
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    TTF_SizeText(global_font, text, &text_rect.w, &text_rect.h);
+    SDL_FreeSurface(textSurface);
+
+    return textTexture;
+}
+
+// Usage in render function:
+void render_text(State* state,
+                 SDL_Rect drawable_canvas,
+                 const char* message,
+                 TTF_Font* font,
+                 real32 world_space_x,
+                 real32 world_space_y,
+                 real32 world_space_size,
+                 SDL_Color text_color)
+{
+    SDL_Rect text_rect = {};
+     // Calculate the actual position based on world space
+    real32 normalized_x = world_space_x * RENDER_SCALE;
+    real32 normalized_y = world_space_y * RENDER_SCALE;
+
+    // TTF_SetFontOutline(font, 4);
+
+    SDL_Texture* textTexture =
+        createTextTexture(global_renderer, font, message, text_color, text_rect, world_space_size);
+
+    // Scale text to match world space size
+    real32 scale_factor = world_space_size * RENDER_SCALE * ((real32)drawable_canvas.w / text_rect.w);
+    text_rect.w = (int32)(text_rect.w * scale_factor);
+    text_rect.h = (int32)(text_rect.h * scale_factor);
+
+    text_rect.x =
+        drawable_canvas.x + (drawable_canvas.w / 2) + (int32)(normalized_x * drawable_canvas.w / 2) - (text_rect.w / 2);
+    text_rect.y = drawable_canvas.y + (drawable_canvas.h / 2) +
+                  (int32)(normalized_y * drawable_canvas.h / 2 * ABSOLUTE_ASPECT_RATIO) - (text_rect.h / 2);
+
+    // Render the text texture onto the canvas
+    SDL_RenderCopy(global_renderer, textTexture, nullptr, &text_rect);
+
+    // Cleanup
+    SDL_DestroyTexture(textTexture);
+}
+
 void render(State* state, SDL_Texture* square_texture)
 {
     // Clear the screen
@@ -96,7 +153,7 @@ void render(State* state, SDL_Texture* square_texture)
     SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
 
     // Use a neutral background color to not cause too much eye strain
-    SDL_SetRenderDrawColor(global_renderer, 56, 56, 56, 255);
+    SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
     SDL_RenderFillRect(global_renderer, &drawable_canvas);
 
     Color_RGBA red = { 171, 70, 66, 255 };
@@ -108,12 +165,12 @@ void render(State* state, SDL_Texture* square_texture)
         real32 normalized_y = state->pos_y * RENDER_SCALE;
 
         real32 actual_x = drawable_canvas.x +
-                        (drawable_canvas.w / 2) +
-                        (normalized_x * drawable_canvas.w / 2);
+                          (drawable_canvas.w / 2) +
+                          (normalized_x * drawable_canvas.w / 2);
         real32 actual_y = drawable_canvas.y +
-                        (drawable_canvas.h / 2) +
-                        // Account for width being wider than height
-                        (normalized_y * drawable_canvas.h / 2 * ABSOLUTE_ASPECT_RATIO);
+                          (drawable_canvas.h / 2) +
+                          // Account for width being wider than height
+                          (normalized_y * drawable_canvas.h / 2 * ABSOLUTE_ASPECT_RATIO);
         real32 actual_square_size = 10 * RENDER_SCALE * drawable_canvas.w;
 
         SDL_Rect dst_rect = {};
@@ -138,7 +195,16 @@ void render(State* state, SDL_Texture* square_texture)
     Color_RGBA magenta = { 186, 139, 175, 255 };
     draw_square(drawable_canvas, 75, 0, 10, magenta);
 
-    SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
+    // SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
+    
+    // Example text rendering
+    SDL_Color white = {255, 255, 255, 255};
+    const char* message = "Hello, World!";
+    real32 text_world_x = 0;   // X position in world space
+    real32 text_world_y = 0;   // Y position in world space
+    real32 text_world_size = 50;  // World space size of text
+
+    render_text(state, drawable_canvas, message, global_font, text_world_x, text_world_y, text_world_size, white);
 
     // Present the rendered content
     SDL_RenderPresent(global_renderer);

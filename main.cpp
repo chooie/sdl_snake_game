@@ -62,6 +62,7 @@ real32 global_frame_time_debt_s;
 uint32 global_counter;
 bool32 global_paused = 0;
 Uint64 global_counter_last_frame;
+TTF_Font* global_font;
 SDL_Rect global_text_rect;
 SDL_Surface* global_text_surface;
 SDL_Texture* global_text_texture;
@@ -202,15 +203,16 @@ int32 main(int32 argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    TTF_Font* font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 128);
-    if (font == nullptr) {
+    global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256);
+    if (global_font == nullptr) {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
         return -1;
     }
 
+    /*
     SDL_Color text_color = {255, 255, 255};  // White color
     const char* text = "Help! I'm trapped in some empty hellscape.";
-    global_text_surface = TTF_RenderText_Blended(font, text, text_color);
+    global_text_surface = TTF_RenderText_Blended(global_font, text, text_color);
     global_text_texture = SDL_CreateTextureFromSurface(global_renderer, global_text_surface);
     SDL_FreeSurface(global_text_surface);
 
@@ -218,8 +220,9 @@ int32 main(int32 argc, char* argv[])
     global_text_rect.x = 100;
     global_text_rect.y = 100;
     // TTF_SetFontSize(font, 24);
-    TTF_SizeText(font, text, &global_text_rect.w, &global_text_rect.h);
+    TTF_SizeText(global_font, text, &global_text_rect.w, &global_text_rect.h);
     // SDL_QueryTexture(global_text_texture, nullptr, nullptr, &global_text_rect.w, &global_text_rect.h);
+    */
 
     SDL_Texture* square_texture = createSquareTexture(global_renderer, window_width / 4);
 
@@ -384,6 +387,7 @@ case sdl_key: {\
 
     SDL_DestroyRenderer(global_renderer);
     SDL_DestroyWindow(global_window);
+    TTF_Quit();
     SDL_Quit();
 
     return EXIT_SUCCESS;

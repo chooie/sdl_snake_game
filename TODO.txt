@@ -12,6 +12,7 @@ TODO
     - If I want to use actual fonts I probably have to use OpenGL?
     - Simplest solution would be to draw boxes that look like letters (like the pong tutorial I did)
     - I can use SDL_ttf apparently, too
+? Get rid of all the duplicate SDL2 includes
 ? Make a game prototype
     e.g. Snake
 ? Play sound
