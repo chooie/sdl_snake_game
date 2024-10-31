@@ -38,32 +38,30 @@ Draw from world space to canvas in window
 Coords are in -100 to 100 space in x direction
 Because the aspect ratio is 16 / 9, coords are -56.25 to 56.25 in y direction
 */
-void draw_square(SDL_Rect drawable_canvas,
-                 real32 world_space_x, real32 world_space_y,
-                 real32 world_space_size,
-                 Color_RGBA color)
+void draw_square_old(SDL_Rect drawable_canvas,
+                     real32 world_space_x, real32 world_space_y,
+                     real32 world_space_size,
+                     Color_RGBA color)
 {
     real32 normalized_x = world_space_x * RENDER_SCALE;
     real32 normalized_y = world_space_y * RENDER_SCALE;
+    real32 actual_x = normalized_x * LOGICAL_WIDTH + (LOGICAL_WIDTH / 2);
+    real32 actual_y = normalized_y * LOGICAL_WIDTH + (LOGICAL_HEIGHT / 2);
+    real32 actual_square_size = world_space_size * RENDER_SCALE * LOGICAL_WIDTH;
 
-    real32 actual_x = drawable_canvas.x +
-                      (drawable_canvas.w / 2) +
-                      (normalized_x * drawable_canvas.w / 2);
-    real32 actual_y = drawable_canvas.y +
-                      (drawable_canvas.h / 2) +
-                      // Account for width being wider than height
-                      (normalized_y * drawable_canvas.h / 2 * ABSOLUTE_ASPECT_RATIO);
-    real32 actual_square_size = world_space_size * RENDER_SCALE * drawable_canvas.w;
+    SDL_Rect square = {};
+    square.x = (int32)(actual_x - (actual_square_size / 2));
+    square.y = (int32)(actual_y - (actual_square_size / 2));
+    square.w = (int32)actual_square_size;
+    square.h = (int32)actual_square_size;
 
-    SDL_Rect red_square = {};
-    red_square.x = (int32)(actual_x - (actual_square_size / 2));
-    red_square.y = (int32)(actual_y - (actual_square_size / 2));
-    red_square.w = (int32)actual_square_size;
-    red_square.h = (int32)actual_square_size;
-
-    // Set the drawing color to red (RGBA)
     SDL_SetRenderDrawColor(global_renderer, color.red, color.green, color.blue, color.alpha);
-    SDL_RenderFillRect(global_renderer, &red_square);
+    SDL_RenderFillRect(global_renderer, &square);
+}
+
+void draw_rect(SDL_Rect rect, SDL_Color color) {
+    SDL_SetRenderDrawColor(global_renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderFillRect(global_renderer, &rect);
 }
 
 // Function to create a text texture
@@ -120,34 +118,45 @@ void render_text(State* state,
     SDL_DestroyTexture(textTexture);
 }
 
+struct Screen_Space_Position {
+    real32 x;
+    real32 y;
+};
+
+/*
+0, 0 is the origin that corresponds to 640, 360
+*/
+Screen_Space_Position
+map_world_space_position_to_screen_space_position(real32 world_x, real32 world_y)
+{
+    Screen_Space_Position result = {};
+    real32 percent_x = world_x * RENDER_SCALE;
+    real32 percent_y = world_y * RENDER_SCALE;
+    real32 actual_x = percent_x * (LOGICAL_WIDTH / 2) + (LOGICAL_WIDTH / 2);
+    real32 actual_y = percent_y * (LOGICAL_WIDTH / 2) + (LOGICAL_HEIGHT / 2);
+
+    result.x = actual_x;
+    result.y = actual_y;
+    return result;
+}
+
+real32
+map_world_space_size_to_screen_space_size(real32 size)
+{
+    return size * RENDER_SCALE * LOGICAL_WIDTH;
+}
+
 void render(State* state, SDL_Texture* square_texture)
 {
     // Clear the screen
     SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
     SDL_RenderClear(global_renderer);
 
-    // Draw canvas that perfectly reflects aspect ratio
-    real32 canvas_width;
-    real32 canvas_height;
-
-    if ((real32)window_width / (real32)window_height > ABSOLUTE_ASPECT_RATIO)
-    {
-        // Window is wider than the desired aspect ratio
-        canvas_height = (real32)window_height;
-        canvas_width = canvas_height * ABSOLUTE_ASPECT_RATIO;
-    }
-    else
-    {
-        // Window is taller than the desired aspect ratio
-        canvas_width = (real32)window_width;
-        canvas_height = canvas_width / ABSOLUTE_ASPECT_RATIO;
-    }
-
     SDL_Rect drawable_canvas;
-    drawable_canvas.x = (window_width - (int32)canvas_width) / 2;
-    drawable_canvas.y = (window_height - (int32)canvas_height) / 2;
-    drawable_canvas.w = (int32)canvas_width;
-    drawable_canvas.h = (int32)canvas_height;
+    drawable_canvas.x = 0;
+    drawable_canvas.y = 0;
+    drawable_canvas.w = LOGICAL_WIDTH;
+    drawable_canvas.h = LOGICAL_HEIGHT;
 
     // Set the clip rectangle to restrict rendering
     SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
@@ -156,8 +165,55 @@ void render(State* state, SDL_Texture* square_texture)
     SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
     SDL_RenderFillRect(global_renderer, &drawable_canvas);
 
-    Color_RGBA red = { 171, 70, 66, 255 };
-    draw_square(drawable_canvas, state->pos_x, state->pos_y, 10, red);
+    Screen_Space_Position square_screen_pos =
+        map_world_space_position_to_screen_space_position(state->pos_x, state->pos_y);
+    real32 square_size = map_world_space_size_to_screen_space_size(10.0f);
+
+    SDL_Rect square = {};
+    square.x = (int32)(square_screen_pos.x - (square_size / 2));
+    square.y = (int32)(square_screen_pos.y - (square_size / 2));
+    square.w = (int32)square_size;
+    square.h = (int32)square_size;
+
+    SDL_Color red = {171, 70, 66, 255};
+    draw_rect(square, red);
+
+    Screen_Space_Position other_square_screen_pos =
+        map_world_space_position_to_screen_space_position(50.0f, 0);
+    real32 other_square_size = map_world_space_size_to_screen_space_size(10.0f);
+
+    SDL_Rect other_square = {};
+    other_square.x = (int32)(other_square_screen_pos.x - (other_square_size / 2));
+    other_square.y = (int32)(other_square_screen_pos.y - (other_square_size / 2));
+    other_square.w = (int32)other_square_size;
+    other_square.h = (int32)other_square_size;
+
+    SDL_Color magenta = {186, 139, 175, 255};
+    draw_rect(other_square, magenta);
+
+
+    Screen_Space_Position rotating_square_screen_pos =
+        map_world_space_position_to_screen_space_position(state->pos_x, state->pos_y);
+    real32 rotating_square_size = map_world_space_size_to_screen_space_size(10.0f);
+
+    SDL_Rect rotating_square = {};
+    rotating_square.x = (int32)(rotating_square_screen_pos.x - (rotating_square_size / 2));
+    rotating_square.y = (int32)(rotating_square_screen_pos.y - (rotating_square_size / 2));
+    rotating_square.w = (int32)rotating_square_size;
+    rotating_square.h = (int32)rotating_square_size;
+
+    // Center of the square for rotation
+    SDL_Point center = {(int32)(rotating_square_size / 2), (int32)(rotating_square_size / 2)};
+
+    // Render the rotating square using SDL_RenderCopyEx
+    SDL_RenderCopyEx(global_renderer,
+                     square_texture,
+                     nullptr,
+                     &rotating_square,
+                     state->angle,
+                     &center,
+                     SDL_FLIP_NONE);
+    /*
 
     // Render the rotating square with the current angle
     {
@@ -193,7 +249,7 @@ void render(State* state, SDL_Texture* square_texture)
     }
 
     Color_RGBA magenta = { 186, 139, 175, 255 };
-    draw_square(drawable_canvas, 75, 0, 10, magenta);
+    draw_square_old(drawable_canvas, 75, 0, 10, magenta);
 
     // SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
     
@@ -205,6 +261,7 @@ void render(State* state, SDL_Texture* square_texture)
     real32 text_world_size = 50;  // World space size of text
 
     render_text(state, drawable_canvas, message, global_font, text_world_x, text_world_y, text_world_size, white);
+    */
 
     // Present the rendered content
     SDL_RenderPresent(global_renderer);

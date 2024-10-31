@@ -184,9 +184,7 @@ int32 main(int32 argc, char* argv[])
                                      SDL_WINDOWPOS_CENTERED,
                                      LOGICAL_WIDTH,
                                      LOGICAL_HEIGHT,
-                                     // TODO: how do I make stuff scale for high dpi devices?
-                                     /*SDL_WINDOW_ALLOW_HIGHDPI | */
-                                     SDL_WINDOW_RESIZABLE);
+                                     SDL_WINDOW_ALLOW_HIGHDPI |SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
     if (!global_window)
     {
         std::cout << "Could not create window: " << SDL_GetError() << std::endl;
@@ -204,6 +202,9 @@ int32 main(int32 argc, char* argv[])
         SDL_Quit();
         return EXIT_FAILURE;
     }
+    SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+    // Set linear scaling for smoother scaling
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
     global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256);
     if (global_font == nullptr) {
