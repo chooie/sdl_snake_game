@@ -257,9 +257,4 @@ void render(State* state, SDL_Texture* square_texture)
 
     render_text(state, drawable_canvas, message, global_font, text_world_x, text_world_y, text_world_size, white);
     */
-
-    SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
-
-    // Present the rendered content
-    SDL_RenderPresent(global_renderer);
 }

@@ -11,6 +11,8 @@
 #endif
 // clang-format on
 
+#include <chrono>
+
 struct Button_State
 {
     bool32 is_down;
@@ -59,10 +61,11 @@ Uint64 GLOBAL_PERFORMANCE_FREQUENCY;
 Uint64 global_counter_start_frame;
 // Sometimes we're going to oversleep, so we need to account for that potentially
 real32 global_frame_time_debt_s;
-uint32 global_counter;
+uint32 global_debug_counter;
 bool32 global_paused = 0;
 Uint64 global_counter_last_frame;
 TTF_Font* global_font;
+TTF_Font* global_debug_font;
 SDL_Rect global_text_rect;
 SDL_Surface* global_text_surface;
 SDL_Texture* global_text_texture;
@@ -101,10 +104,10 @@ void limit_fps()
     real32 fps = 1.0f / actual_frame_time_s;
     // std::cout << "fps: " << fps << std::endl;
 
-    global_counter++;
-    if (global_counter >= (uint32)TARGET_SCREEN_FPS)
+    global_debug_counter++;
+    if (global_debug_counter >= (uint32)TARGET_SCREEN_FPS)
     {
-        global_counter = 0;
+        global_debug_counter = 0;
 
         char fps_str[20];  // Allocate enough space for the string
         sprintf(fps_str, "%.2f", fps);
@@ -208,11 +211,19 @@ int32 main(int32 argc, char* argv[])
     // Set linear scaling for smoother scaling
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
+
     global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256);
     if (global_font == nullptr) {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
         return -1;
     }
+
+    global_debug_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 16);
+    if (global_debug_font == nullptr) {
+        std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+        return -1;
+    }
+
 
     SDL_Color text_color = {255, 255, 255};  // White color
     const char* text = "Help! I'm trapped in some empty hellscape.";
@@ -221,18 +232,18 @@ int32 main(int32 argc, char* argv[])
     SDL_FreeSurface(global_text_surface);
 
     global_text_rect = {};
-    global_text_rect.y = 0;
     // TTF_SetFontSize(global_font, 512);
     TTF_SizeText(global_font, text, &global_text_rect.w, &global_text_rect.h);
 
-    real32 desired_width = 1000.0f;
+    real32 desired_width = LOGICAL_WIDTH * 0.9f;
     real32 text_aspect_ratio = (real32)global_text_rect.w / (real32)global_text_rect.h;
     global_text_rect.w = (int32)desired_width;
 
     global_text_rect.h = int32(desired_width / text_aspect_ratio);
 
     global_text_rect.x = (LOGICAL_WIDTH / 2) - global_text_rect.w / 2;
-    
+    global_text_rect.y = (LOGICAL_HEIGHT / 2) - global_text_rect.h / 2;
+
     // SDL_QueryTexture(global_text_texture, nullptr, nullptr, &global_text_rect.w, &global_text_rect.h);
 
     SDL_Texture* square_texture = createSquareTexture(global_renderer, window_width / 4);
@@ -246,7 +257,7 @@ int32 main(int32 argc, char* argv[])
 
     global_counter_start_frame = SDL_GetPerformanceCounter();
     global_frame_time_debt_s = 0;
-    global_counter = 0;
+    global_debug_counter = 0;
 
     global_counter_last_frame = SDL_GetPerformanceCounter();
 
@@ -255,6 +266,15 @@ int32 main(int32 argc, char* argv[])
 
     State previous_state = {};
     State current_state = {};
+    
+    
+    #ifdef __WIN32__
+    // This looks like a function call but it's actually an intrinsic that
+    // runs the actual assembly instruction directly
+    uint64 last_cycle_count = __rdtsc();
+    #endif
+
+    char debug_text[100] = "";
 
     while (global_running)
     {
@@ -393,10 +413,79 @@ case sdl_key: {\
 
         render(&state, square_texture);
 
+        #if 0
+        // Eat CPU time to test debug stuff
+        auto start = std::chrono::high_resolution_clock::now();
+    
+        // Run a loop that consumes CPU cycles for 10 seconds
+        while (true) {
+            auto now = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+            
+            if (duration.count() >= 4.0f) {
+                break;
+            }
+        }
+        #endif
+
+        uint64 end_cycle_count_before_delay = __rdtsc();
+
         /* We need to run with VSYNC on a mac as it's super choppy otherwise */
         #ifndef __APPLE__
         limit_fps();
         #endif
+    
+        #ifdef __WIN32__
+        uint64 end_cycle_count = __rdtsc();
+        uint64 cycles_elapsed_without_delay = end_cycle_count_before_delay - last_cycle_count;
+        real64 mega_cycles_for_actual_work = cycles_elapsed_without_delay / (1000.0f * 1000.0f);
+        uint64 cycles_elapsed = end_cycle_count - last_cycle_count;
+        real64 mega_cycles_per_frame = cycles_elapsed / (1000.0f * 1000.0f);
+        last_cycle_count = end_cycle_count;
+
+        // printf("CPU Cycles: %lld\n", cycles_elapsed);
+        // printf(
+        //     // "Milliseconds/Frame: %.02fms, FPS: %.02f, Mega cycles/Frame: %.02f\n",
+        //     "Mega cycles/Frame: %.02f\n",
+        //     // MsPerFrame,
+        //     // Fps,
+        //     mega_cycles_per_frame
+        // );
+        #endif
+
+        SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
+
+        SDL_Color debug_text_color = {255, 255, 255};  // White color
+        
+        if (global_debug_counter == 1)
+        {
+            // snprintf(debug_text, sizeof(debug_text), "Mega cycles/Frame: %.02f", mega_cycles_per_frame);
+            snprintf(debug_text, sizeof(debug_text), "Mega cycles/Frame: %.02f", mega_cycles_for_actual_work);
+        }
+
+        SDL_Surface* debug_text_surface = TTF_RenderText_Blended(global_debug_font, debug_text, debug_text_color);
+        SDL_Texture* debug_text_texture = SDL_CreateTextureFromSurface(global_renderer, debug_text_surface);
+        SDL_FreeSurface(debug_text_surface);
+
+        SDL_Rect debug_text_rect = {};
+
+        // TTF_SetFontSize(global_font, 512);
+        TTF_SizeText(global_debug_font, debug_text, &debug_text_rect.w, &debug_text_rect.h);
+
+        debug_text_rect.x = (int32)(LOGICAL_WIDTH * 0.01f);
+        debug_text_rect.y = (int32)(LOGICAL_HEIGHT * 0.01f);
+
+        // Disable logical size scaling temporarily
+        SDL_RenderSetLogicalSize(global_renderer, 0, 0);
+
+        // Draw the text at its exact physical size
+        SDL_RenderCopy(global_renderer, debug_text_texture, NULL, &debug_text_rect);
+
+        // Re-enable logical size scaling for other elements
+        SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // Present the rendered content
+        SDL_RenderPresent(global_renderer);
     }
 
     TTF_CloseFont(global_font);
