@@ -59,7 +59,6 @@ int32 global_running = 1;
 SDL_Window* global_window;
 SDL_Renderer* global_renderer;
 Uint64 GLOBAL_PERFORMANCE_FREQUENCY;
-uint32 global_debug_counter;
 bool32 global_paused = 0;
 Uint64 global_counter_last_frame;
 
@@ -69,11 +68,22 @@ SDL_Rect global_text_rect;
 SDL_Surface* global_text_surface;
 SDL_Texture* global_text_texture;
 
+real32 global_debug_counter;
+Uint64 global_tick_counter_before;
 
-Uint64 global_counter_start_frame;
-real32 global_actual_frame_time_s;
-// Sometimes we're going to oversleep, so we need to account for that potentially
-real32 global_frame_time_debt_s;
+struct Master_Timer {
+    // High-res timer stuff
+    Uint64 last_frame_counter;
+    Uint64 COUNTER_FREQUENCY;
+
+    real32 frame_time_elapsed_before_sleep__seconds; // Useful to see how much time was really needed
+    real32 total_frame_time_elapsed__seconds; // After the sleep or vsync block
+
+    real64 physics_simluation_elapsed_time__seconds;
+};
+Master_Timer global_master_timer;
+
+#if 0
 void limit_fps()
 {
     Uint64 counter_end_frame = SDL_GetPerformanceCounter();
@@ -104,6 +114,47 @@ void limit_fps()
         global_frame_time_debt_s = 0;
     }
 }
+#endif
+
+real32 global_frame_time_debt_s;
+void update_timer(Master_Timer* t)
+{
+    Uint64 counter_now = SDL_GetPerformanceCounter();
+
+    t->frame_time_elapsed_before_sleep__seconds =
+        ((real32)(counter_now - t->last_frame_counter) / (real32)t->COUNTER_FREQUENCY);
+
+    real32 sleep_time_s =
+        (TARGET_TIME_PER_FRAME_S - global_frame_time_debt_s) - t->frame_time_elapsed_before_sleep__seconds;
+
+    if (sleep_time_s > 0)
+    {
+        real32 sleep_time_ms = sleep_time_s * 1000.0f;
+        // printf("Sleep ms: %.2f\n", sleep_time_ms);
+
+        // Round sleep time up
+        SDL_Delay((uint32)(sleep_time_ms + 0.5f));
+    } else {
+        // TODO: logging when we miss a frame?
+    }
+
+    // TODO: maybe we should account for main thread block in the case of vsync enabled?
+    Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
+    t->total_frame_time_elapsed__seconds =
+        ((real32)(counter_after_sleep - t->last_frame_counter) / (real32)t->COUNTER_FREQUENCY);
+
+    // Next iteration
+    t->last_frame_counter = counter_after_sleep;
+
+    // printf("Frame time: %.2f\n", t->total_frame_time_elapsed__seconds * 1000.f);
+
+    global_frame_time_debt_s = t->total_frame_time_elapsed__seconds - TARGET_TIME_PER_FRAME_S;
+
+    if (global_frame_time_debt_s < 0)
+    {
+        global_frame_time_debt_s = 0;
+    }
+}
 
 #include "input.cpp"
 #include "game.cpp"
@@ -111,7 +162,7 @@ void limit_fps()
 
 int32 filterEvent(void* userdata, SDL_Event* event)
 {
-    Input* input = static_cast<Input*>(userdata);
+    Input* input = (Input*)(userdata);
 
     if (event->type == SDL_WINDOWEVENT)
     {
@@ -225,18 +276,21 @@ int32 main(int32 argc, char* argv[])
 
     GLOBAL_PERFORMANCE_FREQUENCY = SDL_GetPerformanceFrequency();
 
-    global_counter_start_frame = SDL_GetPerformanceCounter();
+    Master_Timer master_timer = {};
+    master_timer.COUNTER_FREQUENCY = GLOBAL_PERFORMANCE_FREQUENCY;
+    master_timer.last_frame_counter = SDL_GetPerformanceCounter();
+
     global_frame_time_debt_s = 0;
+
     global_debug_counter = 0;
+    global_tick_counter_before = SDL_GetPerformanceCounter();
 
     global_counter_last_frame = SDL_GetPerformanceCounter();
 
-    real64 simulation_time_elapsed_s = 0.0;
     real32 accumulator_s = 0.0f;
 
     State previous_state = {};
     State current_state = {};
-    
     
     #ifdef __WIN32__
     // This looks like a function call but it's actually an intrinsic that
@@ -249,6 +303,7 @@ int32 main(int32 argc, char* argv[])
 
     while (global_running)
     {
+        // printf("Time elapsed: %.2f\n", master_timer.physics_simluation_elapsed_time__seconds);
         handle_input(&event, &input);
 
         if (global_paused)
@@ -259,11 +314,7 @@ int32 main(int32 argc, char* argv[])
         if (!global_paused)
         {
             // https://gafferongames.com/post/fix_your_timestep/
-            Uint64 counter_now = SDL_GetPerformanceCounter();
-
-            real32 frame_time_s =
-                ((real32)(counter_now - global_counter_last_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
-            global_counter_last_frame = counter_now;
+            real32 frame_time_s = master_timer.total_frame_time_elapsed__seconds;
 
             if (frame_time_s > 0.25f)
             {
@@ -276,8 +327,13 @@ int32 main(int32 argc, char* argv[])
             while (accumulator_s >= SIMULATION_DELTA_TIME_S)
             {  // Simulation 'consumes' whatever time is given to it based on the render rate
                 previous_state = current_state;
-                simulate(&current_state, &input, simulation_time_elapsed_s, SIMULATION_DELTA_TIME_S);
-                simulation_time_elapsed_s += SIMULATION_DELTA_TIME_S;
+                simulate(
+                    &current_state,
+                    &input,
+                    master_timer.physics_simluation_elapsed_time__seconds,
+                    SIMULATION_DELTA_TIME_S
+                );
+                master_timer.physics_simluation_elapsed_time__seconds += SIMULATION_DELTA_TIME_S;
                 accumulator_s -= SIMULATION_DELTA_TIME_S;
 
                 // printf("Timer: %.2f\n", simulation_time_elapsed_s);
@@ -308,9 +364,13 @@ int32 main(int32 argc, char* argv[])
 
         uint64 end_cycle_count_before_delay = __rdtsc();
 
+#if 0
+
 /* We need to run with VSYNC on a mac as it's super choppy otherwise */
 #ifndef __APPLE__
-        limit_fps();
+        // limit_fps();
+#endif
+
 #endif
 
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -362,7 +422,7 @@ int32 main(int32 argc, char* argv[])
 
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-        real32 fps = 1.0f / global_actual_frame_time_s;
+        real32 fps = 1.0f / master_timer.total_frame_time_elapsed__seconds;
 
         if (global_debug_counter == 0)
         {
@@ -392,11 +452,6 @@ int32 main(int32 argc, char* argv[])
         // Re-enable logical size scaling for other elements
         SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-        // Present the rendered content
-        SDL_RenderPresent(global_renderer);
-
         if (global_debug_counter == 0)
         {
             char fps_str[30];  // Allocate enough space for the string
@@ -421,11 +476,17 @@ int32 main(int32 argc, char* argv[])
             SDL_SetWindowTitle(global_window, title_str);
         }
 
-        global_debug_counter++;
-        if (global_debug_counter >= (uint32)TARGET_SCREEN_FPS)
+        global_debug_counter += master_timer.total_frame_time_elapsed__seconds;
+
+        // Tick every second
+        if (global_debug_counter >= 1.0f)
         {
             global_debug_counter = 0;
         }
+
+        // Present the rendered content
+        SDL_RenderPresent(global_renderer);
+        update_timer(&master_timer);
     }
 
     TTF_CloseFont(global_font);
