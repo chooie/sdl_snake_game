@@ -48,7 +48,8 @@ real32 ABSOLUTE_ASPECT_RATIO = (real32)LOGICAL_WIDTH / (real32)LOGICAL_HEIGHT;
 int32 window_width = LOGICAL_WIDTH;
 int32 window_height = LOGICAL_HEIGHT;
 
-real32 SIMULATION_DELTA_TIME_S = 0.01f;
+real32 SIMULATION_FPS = 100;
+real32 SIMULATION_DELTA_TIME_S = 1.f / SIMULATION_FPS;
 
 int32 TARGET_SCREEN_FPS = 60;
 real32 TARGET_TIME_PER_FRAME_S = 1.f / (real32)TARGET_SCREEN_FPS;
@@ -58,18 +59,21 @@ int32 global_running = 1;
 SDL_Window* global_window;
 SDL_Renderer* global_renderer;
 Uint64 GLOBAL_PERFORMANCE_FREQUENCY;
-Uint64 global_counter_start_frame;
-// Sometimes we're going to oversleep, so we need to account for that potentially
-real32 global_frame_time_debt_s;
 uint32 global_debug_counter;
 bool32 global_paused = 0;
 Uint64 global_counter_last_frame;
+
 TTF_Font* global_font;
 TTF_Font* global_debug_font;
 SDL_Rect global_text_rect;
 SDL_Surface* global_text_surface;
 SDL_Texture* global_text_texture;
 
+
+Uint64 global_counter_start_frame;
+real32 global_actual_frame_time_s;
+// Sometimes we're going to oversleep, so we need to account for that potentially
+real32 global_frame_time_debt_s;
 void limit_fps()
 {
     Uint64 counter_end_frame = SDL_GetPerformanceCounter();
@@ -88,54 +92,20 @@ void limit_fps()
         // printf("Missed frame!\n");
     }
     Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
-    real32 actual_frame_time_s =
+    global_actual_frame_time_s =
         ((real32)(counter_after_sleep - global_counter_start_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
     // Set this for the next iteration
     global_counter_start_frame = counter_after_sleep;
 
-
-    global_frame_time_debt_s = actual_frame_time_s - TARGET_TIME_PER_FRAME_S;
+    global_frame_time_debt_s = global_actual_frame_time_s - TARGET_TIME_PER_FRAME_S;
 
     if (global_frame_time_debt_s < 0)
     {
         global_frame_time_debt_s = 0;
     }
-
-    real32 fps = 1.0f / actual_frame_time_s;
-    // std::cout << "fps: " << fps << std::endl;
-
-    global_debug_counter++;
-    if (global_debug_counter >= (uint32)TARGET_SCREEN_FPS)
-    {
-        global_debug_counter = 0;
-
-        char fps_str[20];  // Allocate enough space for the string
-        sprintf(fps_str, "%.2f", fps);
-
-        char title_str[100] = "SDL Starter (FPS: ";
-        int index_to_start_adding = 0;
-        while (title_str[index_to_start_adding] != '\0')
-        {
-            index_to_start_adding++;
-        }
-
-        for (uint32 i = 0; fps_str[i] != '\0'; i++)
-        {
-            title_str[index_to_start_adding++] = fps_str[i];
-        }
-
-        title_str[index_to_start_adding++] = ')';
-
-        title_str[index_to_start_adding++] = '\0';
-
-        SDL_SetWindowTitle(global_window, title_str);
-    }
 }
 
-#define is_down(b) input->buttons[b].is_down
-#define pressed(b) input->buttons[b].is_down && input->buttons[b].changed
-#define released(b) (!input->buttons[b].is_down && input->buttons[b].changed)
-
+#include "input.cpp"
 #include "game.cpp"
 #include "render.cpp"
 
@@ -275,105 +245,14 @@ int32 main(int32 argc, char* argv[])
     #endif
 
     char debug_text[100] = "";
+    char debug_text_2[100] = "";
 
     while (global_running)
     {
-        for (int i = 0; i < BUTTON_COUNT; i++)
+        handle_input(&event, &input);
+
+        if (global_paused)
         {
-            input.buttons[i].changed = false;
-        }
-
-        while (SDL_PollEvent(&event))
-        {
-            switch(event.type)
-            {
-                case SDL_KEYDOWN:
-                case SDL_KEYUP:
-                {
-                    switch (event.key.keysym.sym)
-                    {
-#define process_input(button, sdl_key)\
-case sdl_key: {\
-    if (event.type == SDL_KEYDOWN)\
-    {\
-        input.buttons[button].changed = input.buttons[button].is_down == 0;\
-        input.buttons[button].is_down = 1;\
-    } else {\
-        input.buttons[button].changed = input.buttons[button].is_down == 1;\
-        input.buttons[button].is_down = 0;\
-    }\
-} break;
-                        process_input(BUTTON_W, SDLK_w);
-                        process_input(BUTTON_A, SDLK_a);
-                        process_input(BUTTON_S, SDLK_s);
-                        process_input(BUTTON_D, SDLK_d);
-                        process_input(BUTTON_SPACE, SDLK_SPACE);
-                    }
-                } break;
-            }
-
-            switch (event.type)
-            {
-                case SDL_KEYUP:
-                {
-                    switch (event.key.keysym.sym)
-                    {
-                        case SDLK_ESCAPE:
-                        {
-                            global_running = 0;
-                        }
-                        break;
-                        // case SDLK_s:
-                        // {
-                        //     SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
-                        // } break;
-                        case SDLK_f:
-                        {
-                            int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN;
-                            if (isFullScreen)
-                            {
-                                SDL_SetWindowFullscreen(global_window, 0);
-                                SDL_ShowCursor(SDL_ENABLE);
-                                SDL_SetRelativeMouseMode(SDL_FALSE);
-                            }
-                            else
-                            {
-                                SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-                                SDL_ShowCursor(SDL_DISABLE);
-                                SDL_SetRelativeMouseMode(SDL_TRUE);
-                            }
-                        }
-                        break;
-                    }
-                }
-                break;
-
-                case SDL_WINDOWEVENT:
-                {
-                    switch (event.window.event)
-                    {
-                        case SDL_WINDOWEVENT_CLOSE:
-                        {
-                            global_running = 0;
-                        }
-                        break;
-                    }
-                }
-                break;
-
-                case SDL_QUIT:
-                {
-                    global_running = false;
-                } break;
-            }
-        }
-
-        if (input.buttons[BUTTON_SPACE].is_down && input.buttons[BUTTON_SPACE].changed)
-        {
-            global_paused = !global_paused;
-        }
-
-        if (global_paused) {
             global_counter_last_frame = SDL_GetPerformanceCounter();
         }
 
@@ -382,9 +261,8 @@ case sdl_key: {\
             // https://gafferongames.com/post/fix_your_timestep/
             Uint64 counter_now = SDL_GetPerformanceCounter();
 
-            real32 frame_time_s = ((real32)(counter_now - global_counter_last_frame)
-                                   /
-                                   (real32)GLOBAL_PERFORMANCE_FREQUENCY);
+            real32 frame_time_s =
+                ((real32)(counter_now - global_counter_last_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
             global_counter_last_frame = counter_now;
 
             if (frame_time_s > 0.25f)
@@ -396,7 +274,7 @@ case sdl_key: {\
             accumulator_s += frame_time_s;
 
             while (accumulator_s >= SIMULATION_DELTA_TIME_S)
-            {   // Simulation 'consumes' whatever time is given to it based on the render rate
+            {  // Simulation 'consumes' whatever time is given to it based on the render rate
                 previous_state = current_state;
                 simulate(&current_state, &input, simulation_time_elapsed_s, SIMULATION_DELTA_TIME_S);
                 simulation_time_elapsed_s += SIMULATION_DELTA_TIME_S;
@@ -413,7 +291,7 @@ case sdl_key: {\
 
         render(&state, square_texture);
 
-        #if 0
+#if 0
         // Eat CPU time to test debug stuff
         auto start = std::chrono::high_resolution_clock::now();
     
@@ -426,42 +304,39 @@ case sdl_key: {\
                 break;
             }
         }
-        #endif
+#endif
 
         uint64 end_cycle_count_before_delay = __rdtsc();
 
-        /* We need to run with VSYNC on a mac as it's super choppy otherwise */
-        #ifndef __APPLE__
+/* We need to run with VSYNC on a mac as it's super choppy otherwise */
+#ifndef __APPLE__
         limit_fps();
-        #endif
-    
-        #ifdef __WIN32__
+#endif
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+#ifdef __WIN32__
         uint64 end_cycle_count = __rdtsc();
         uint64 cycles_elapsed_without_delay = end_cycle_count_before_delay - last_cycle_count;
         real64 mega_cycles_for_actual_work = cycles_elapsed_without_delay / (1000.0f * 1000.0f);
         uint64 cycles_elapsed = end_cycle_count - last_cycle_count;
         real64 mega_cycles_per_frame = cycles_elapsed / (1000.0f * 1000.0f);
         last_cycle_count = end_cycle_count;
-
-        // printf("CPU Cycles: %lld\n", cycles_elapsed);
-        // printf(
-        //     // "Milliseconds/Frame: %.02fms, FPS: %.02f, Mega cycles/Frame: %.02f\n",
-        //     "Mega cycles/Frame: %.02f\n",
-        //     // MsPerFrame,
-        //     // Fps,
-        //     mega_cycles_per_frame
-        // );
-        #endif
+#endif
 
         SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
 
         SDL_Color debug_text_color = {255, 255, 255};  // White color
-        
-        if (global_debug_counter == 1)
+
+        if (global_debug_counter == 0)
         {
-            // snprintf(debug_text, sizeof(debug_text), "Mega cycles/Frame: %.02f", mega_cycles_per_frame);
+#ifdef __WIN32__
             snprintf(debug_text, sizeof(debug_text), "Mega cycles/Frame: %.02f", mega_cycles_for_actual_work);
+#endif
         }
+
+        real32 y_offset = 0;
+        real32 padding = 5.0f;
 
         SDL_Surface* debug_text_surface = TTF_RenderText_Blended(global_debug_font, debug_text, debug_text_color);
         SDL_Texture* debug_text_texture = SDL_CreateTextureFromSurface(global_renderer, debug_text_surface);
@@ -471,6 +346,7 @@ case sdl_key: {\
 
         // TTF_SetFontSize(global_font, 512);
         TTF_SizeText(global_debug_font, debug_text, &debug_text_rect.w, &debug_text_rect.h);
+        y_offset += debug_text_rect.h + padding;
 
         debug_text_rect.x = (int32)(LOGICAL_WIDTH * 0.01f);
         debug_text_rect.y = (int32)(LOGICAL_HEIGHT * 0.01f);
@@ -484,11 +360,76 @@ case sdl_key: {\
         // Re-enable logical size scaling for other elements
         SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        real32 fps = 1.0f / global_actual_frame_time_s;
+
+        if (global_debug_counter == 0)
+        {
+#ifdef __WIN32__
+            snprintf(debug_text_2, sizeof(debug_text_2), "FPS: %.02f", fps);
+#endif
+        }
+
+        SDL_Surface* debug_text_surface_2 = TTF_RenderText_Blended(global_debug_font, debug_text_2, debug_text_color);
+        SDL_Texture* debug_text_texture_2 = SDL_CreateTextureFromSurface(global_renderer, debug_text_surface_2);
+        SDL_FreeSurface(debug_text_surface_2);
+
+        SDL_Rect debug_text_rect_2 = {};
+
+        // TTF_SetFontSize(global_font, 512);
+        TTF_SizeText(global_debug_font, debug_text_2, &debug_text_rect_2.w, &debug_text_rect_2.h);
+
+        debug_text_rect_2.x = (int32)(LOGICAL_WIDTH * 0.01f);
+        debug_text_rect_2.y = (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f);
+
+        // Disable logical size scaling temporarily
+        SDL_RenderSetLogicalSize(global_renderer, 0, 0);
+
+        // Draw the text at its exact physical size
+        SDL_RenderCopy(global_renderer, debug_text_texture_2, NULL, &debug_text_rect_2);
+
+        // Re-enable logical size scaling for other elements
+        SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
         // Present the rendered content
         SDL_RenderPresent(global_renderer);
+
+        if (global_debug_counter == 0)
+        {
+            char fps_str[30];  // Allocate enough space for the string
+            sprintf(fps_str, "%.2f", fps);
+
+            char title_str[100] = "SDL Starter (FPS: ";
+            int index_to_start_adding = 0;
+            while (title_str[index_to_start_adding] != '\0')
+            {
+                index_to_start_adding++;
+            }
+
+            for (uint32 i = 0; fps_str[i] != '\0'; i++)
+            {
+                title_str[index_to_start_adding++] = fps_str[i];
+            }
+
+            title_str[index_to_start_adding++] = ')';
+
+            title_str[index_to_start_adding++] = '\0';
+
+            SDL_SetWindowTitle(global_window, title_str);
+        }
+
+        global_debug_counter++;
+        if (global_debug_counter >= (uint32)TARGET_SCREEN_FPS)
+        {
+            global_debug_counter = 0;
+        }
     }
 
     TTF_CloseFont(global_font);
+    TTF_CloseFont(global_debug_font);
     SDL_DestroyRenderer(global_renderer);
     SDL_DestroyWindow(global_window);
     TTF_Quit();
