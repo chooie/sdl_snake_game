@@ -51,7 +51,7 @@ int32 window_height = LOGICAL_HEIGHT;
 real32 SIMULATION_FPS = 100;
 real32 SIMULATION_DELTA_TIME_S = 1.f / SIMULATION_FPS;
 
-int32 TARGET_SCREEN_FPS = 60;
+real32 TARGET_SCREEN_FPS = 59.9f;
 real32 TARGET_TIME_PER_FRAME_S = 1.f / (real32)TARGET_SCREEN_FPS;
 real32 TARGET_TIME_PER_FRAME_MS = 1000.f / (real32)TARGET_SCREEN_FPS;
 
@@ -81,79 +81,72 @@ struct Master_Timer {
 
     real64 physics_simluation_elapsed_time__seconds;
 };
-Master_Timer global_master_timer;
 
-#if 0
-void limit_fps()
-{
-    Uint64 counter_end_frame = SDL_GetPerformanceCounter();
-
-    real32 frame_time_elapsed_s =
-        ((real32)(counter_end_frame - global_counter_start_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
-
-    real32 sleep_time_s = (TARGET_TIME_PER_FRAME_S - global_frame_time_debt_s) - frame_time_elapsed_s;
-    if (sleep_time_s > 0)
-    {
-        real32 sleep_time_ms = sleep_time_s * 1000.0f;
-        SDL_Delay((uint32)sleep_time_ms);
-    }
-    else
-    {
-        // printf("Missed frame!\n");
-    }
-    Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
-    global_actual_frame_time_s =
-        ((real32)(counter_after_sleep - global_counter_start_frame) / (real32)GLOBAL_PERFORMANCE_FREQUENCY);
-    // Set this for the next iteration
-    global_counter_start_frame = counter_after_sleep;
-
-    global_frame_time_debt_s = global_actual_frame_time_s - TARGET_TIME_PER_FRAME_S;
-
-    if (global_frame_time_debt_s < 0)
-    {
-        global_frame_time_debt_s = 0;
-    }
-}
+#ifdef __WIN32__
+uint64 global_last_cycle_count;
+uint64 global_cycles_elapsed_without_delay;
+uint64 global_total_cycles_elapsed;
 #endif
 
 real32 global_frame_time_debt_s;
-void update_timer(Master_Timer* t)
+void update_timer(Master_Timer* t, bool32 vsync_enabled)
 {
+#ifdef __WIN32__
+    uint64 global_cycle_count_now = __rdtsc();
+    global_cycles_elapsed_without_delay = global_cycle_count_now - global_last_cycle_count;
+#endif
+
     Uint64 counter_now = SDL_GetPerformanceCounter();
 
     t->frame_time_elapsed_before_sleep__seconds =
         ((real32)(counter_now - t->last_frame_counter) / (real32)t->COUNTER_FREQUENCY);
 
-    real32 sleep_time_s =
-        (TARGET_TIME_PER_FRAME_S - global_frame_time_debt_s) - t->frame_time_elapsed_before_sleep__seconds;
-
-    if (sleep_time_s > 0)
+    if (!vsync_enabled)
     {
-        real32 sleep_time_ms = sleep_time_s * 1000.0f;
-        // printf("Sleep ms: %.2f\n", sleep_time_ms);
+        real32 sleep_time_s =
+            (TARGET_TIME_PER_FRAME_S - global_frame_time_debt_s) - t->frame_time_elapsed_before_sleep__seconds;
 
-        // Round sleep time up
-        SDL_Delay((uint32)(sleep_time_ms + 0.5f));
-    } else {
-        // TODO: logging when we miss a frame?
+        if (sleep_time_s > 0)
+        {
+            real32 sleep_time_ms = sleep_time_s * 1000.0f;
+            // printf("Sleep ms: %.2f\n", sleep_time_ms);
+
+            // Round sleep time up
+            SDL_Delay((uint32)(sleep_time_ms + 0.5f));
+        }
+        else
+        {
+            // TODO: logging when we miss a frame?
+        }
     }
 
-    // TODO: maybe we should account for main thread block in the case of vsync enabled?
+#ifdef __WIN32__
+    uint64 global_end_cycle_count_after_delay = __rdtsc();
+    global_total_cycles_elapsed = global_end_cycle_count_after_delay - global_last_cycle_count;
+#endif
+
     Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
     t->total_frame_time_elapsed__seconds =
         ((real32)(counter_after_sleep - t->last_frame_counter) / (real32)t->COUNTER_FREQUENCY);
 
+    // printf("Frame time: %.2f\n", t->total_frame_time_elapsed__seconds * 1000.f);
+
+    if (!vsync_enabled)
+    {
+        // global_frame_time_debt_s = t->total_frame_time_elapsed__seconds - TARGET_TIME_PER_FRAME_S;
+
+        // if (global_frame_time_debt_s < 0)
+        // {
+        //     global_frame_time_debt_s = 0;
+        // }
+    }
+
     // Next iteration
     t->last_frame_counter = counter_after_sleep;
 
-    // printf("Frame time: %.2f\n", t->total_frame_time_elapsed__seconds * 1000.f);
-
-    global_frame_time_debt_s = t->total_frame_time_elapsed__seconds - TARGET_TIME_PER_FRAME_S;
-
-    if (global_frame_time_debt_s < 0)
-    {
-        global_frame_time_debt_s = 0;
-    }
+#ifdef __WIN32__
+    global_last_cycle_count = global_cycle_count_now;
+#endif
 }
 
 #include "input.cpp"
@@ -215,12 +208,7 @@ int32 main(int32 argc, char* argv[])
         return 1;
     }
 
-    global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED
-                                        #ifdef __APPLE__
-                                         // Need to run at VSYNC on a Mac as it's choppy otherwise
-                                         | SDL_RENDERER_PRESENTVSYNC
-                                        #endif
-    );
+    global_renderer = SDL_CreateRenderer(global_window, -1, SDL_RENDERER_ACCELERATED);
     if (!global_renderer)
     {
         fprintf(stderr, "SDL_CreateRenderer Error: %s\n", SDL_GetError());
@@ -295,14 +283,26 @@ int32 main(int32 argc, char* argv[])
     #ifdef __WIN32__
     // This looks like a function call but it's actually an intrinsic that
     // runs the actual assembly instruction directly
-    uint64 last_cycle_count = __rdtsc();
+    global_last_cycle_count = __rdtsc();
     #endif
 
     char debug_text[100] = "";
     char debug_text_2[100] = "";
 
+    bool32 vsync_enabled = 1;
+#ifdef __APPLE__
+    vsync_enabled = 1;
+#endif
+
+    SDL_RenderSetVSync(global_renderer, vsync_enabled);
+
     while (global_running)
     {
+        // Clear the screen
+        SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
+        SDL_RenderClear(global_renderer);
+
+        update_timer(&master_timer, vsync_enabled);
         // printf("Time elapsed: %.2f\n", master_timer.physics_simluation_elapsed_time__seconds);
         handle_input(&event, &input);
 
@@ -362,26 +362,9 @@ int32 main(int32 argc, char* argv[])
         }
 #endif
 
-        uint64 end_cycle_count_before_delay = __rdtsc();
-
-#if 0
-
-/* We need to run with VSYNC on a mac as it's super choppy otherwise */
-#ifndef __APPLE__
-        // limit_fps();
-#endif
-
-#endif
-
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
 #ifdef __WIN32__
-        uint64 end_cycle_count = __rdtsc();
-        uint64 cycles_elapsed_without_delay = end_cycle_count_before_delay - last_cycle_count;
-        real64 mega_cycles_for_actual_work = cycles_elapsed_without_delay / (1000.0f * 1000.0f);
-        uint64 cycles_elapsed = end_cycle_count - last_cycle_count;
-        real64 mega_cycles_per_frame = cycles_elapsed / (1000.0f * 1000.0f);
-        last_cycle_count = end_cycle_count;
+        real64 mega_cycles_for_actual_work = global_cycles_elapsed_without_delay / (1000.0f * 1000.0f);
+        real64 mega_cycles_per_frame = global_total_cycles_elapsed / (1000.0f * 1000.0f);
 #endif
 
         SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
@@ -486,7 +469,7 @@ int32 main(int32 argc, char* argv[])
 
         // Present the rendered content
         SDL_RenderPresent(global_renderer);
-        update_timer(&master_timer);
+        SDL_SetRenderTarget(global_renderer, NULL);
     }
 
     TTF_CloseFont(global_font);

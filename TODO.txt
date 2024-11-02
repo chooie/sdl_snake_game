@@ -28,3 +28,10 @@ Nice-to-haves
 Cleanup/Best-practice
 -------
 ? Get rid of all the duplicate SDL2 includes
+
+Notes
+-----
+Game feels a lot smoother when I choose an FPS that is either my refresh rate or some clean multiple of it (e.g. 1/2).
+Turns out I shouldn't have been using 60 FPS if my monitor was at 165hz - dangggggggggggggggggg. How am I only figuring
+this out now!? That's why Braid had such weird target FPS values like 88.4FPS. I've switched to 60 FPS and am now
+targeting 59.9 FPS.

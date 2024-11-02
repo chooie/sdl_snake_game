@@ -148,10 +148,6 @@ map_world_space_size_to_screen_space_size(real32 size)
 
 void render(State* state, SDL_Texture* square_texture)
 {
-    // Clear the screen
-    SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
-    SDL_RenderClear(global_renderer);
-
     SDL_Rect drawable_canvas;
     drawable_canvas.x = 0;
     drawable_canvas.y = 0;
