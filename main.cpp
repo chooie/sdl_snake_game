@@ -88,7 +88,6 @@ uint64 global_cycles_elapsed_without_delay;
 uint64 global_total_cycles_elapsed;
 #endif
 
-real32 global_frame_time_debt_s;
 void update_timer(Master_Timer* t, bool32 vsync_enabled)
 {
 #ifdef __WIN32__
@@ -103,8 +102,7 @@ void update_timer(Master_Timer* t, bool32 vsync_enabled)
 
     if (!vsync_enabled)
     {
-        real32 sleep_time_s =
-            (TARGET_TIME_PER_FRAME_S - global_frame_time_debt_s) - t->frame_time_elapsed_before_sleep__seconds;
+        real32 sleep_time_s = TARGET_TIME_PER_FRAME_S - t->frame_time_elapsed_before_sleep__seconds;
 
         if (sleep_time_s > 0)
         {
@@ -129,18 +127,6 @@ void update_timer(Master_Timer* t, bool32 vsync_enabled)
     t->total_frame_time_elapsed__seconds =
         ((real32)(counter_after_sleep - t->last_frame_counter) / (real32)t->COUNTER_FREQUENCY);
 
-    // printf("Frame time: %.2f\n", t->total_frame_time_elapsed__seconds * 1000.f);
-
-    if (!vsync_enabled)
-    {
-        // global_frame_time_debt_s = t->total_frame_time_elapsed__seconds - TARGET_TIME_PER_FRAME_S;
-
-        // if (global_frame_time_debt_s < 0)
-        // {
-        //     global_frame_time_debt_s = 0;
-        // }
-    }
-
     // Next iteration
     t->last_frame_counter = counter_after_sleep;
 
@@ -160,15 +146,15 @@ SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
     SDL_SetRenderTarget(renderer, texture);
 
     // Clear the texture (make it transparent)
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);  // Fully transparent
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0); // Fully transparent
     SDL_RenderClear(renderer);
 
     SDL_SetRenderDrawColor(renderer, 247, 202, 136, 255);
-    SDL_Rect square = {0, 0, size, size};              // The square fills the texture
+    SDL_Rect square = {0, 0, size, size}; // The square fills the texture
     SDL_RenderFillRect(renderer, &square);
 
     // Reset the render target back to the default window
-    SDL_SetRenderTarget(renderer, nullptr);
+    SDL_SetRenderTarget(renderer, 0);
 
     return texture;
 }
@@ -257,28 +243,6 @@ int32 main(int32 argc, char* argv[])
         return -1;
     }
 
-
-    SDL_Color text_color = {255, 255, 255};  // White color
-    const char* text = "Help! I'm trapped in some empty hellscape.";
-    global_text_surface = TTF_RenderText_Blended(global_font, text, text_color);
-    global_text_texture = SDL_CreateTextureFromSurface(global_renderer, global_text_surface);
-    SDL_FreeSurface(global_text_surface);
-
-    global_text_rect = {};
-    // TTF_SetFontSize(global_font, 512);
-    TTF_SizeText(global_font, text, &global_text_rect.w, &global_text_rect.h);
-
-    real32 desired_width = LOGICAL_WIDTH * 0.9f;
-    real32 text_aspect_ratio = (real32)global_text_rect.w / (real32)global_text_rect.h;
-    global_text_rect.w = (int32)desired_width;
-
-    global_text_rect.h = int32(desired_width / text_aspect_ratio);
-
-    global_text_rect.x = (LOGICAL_WIDTH / 2) - global_text_rect.w / 2;
-    global_text_rect.y = (LOGICAL_HEIGHT / 2) - global_text_rect.h / 2;
-
-    // SDL_QueryTexture(global_text_texture, nullptr, nullptr, &global_text_rect.w, &global_text_rect.h);
-
     global_square_texture = createSquareTexture(global_renderer, window_width / 4);
 
     SDL_Event event;
@@ -291,8 +255,6 @@ int32 main(int32 argc, char* argv[])
     Master_Timer master_timer = {};
     master_timer.COUNTER_FREQUENCY = GLOBAL_PERFORMANCE_FREQUENCY;
     master_timer.last_frame_counter = SDL_GetPerformanceCounter();
-
-    global_frame_time_debt_s = 0;
 
     global_debug_counter = 0;
     global_tick_counter_before = SDL_GetPerformanceCounter();
@@ -310,8 +272,12 @@ int32 main(int32 argc, char* argv[])
     global_last_cycle_count = __rdtsc();
     #endif
 
-    char debug_text[100] = "";
-    char debug_text_2[100] = "";
+#ifdef __WIN32__
+    char mega_cycles_text[100] = "";
+#endif
+
+    char fps_text[100] = "";
+    char ms_per_frame_text[100] = "";
 
     bool32 vsync_enabled = 1;
 #ifdef __APPLE__
@@ -371,6 +337,12 @@ int32 main(int32 argc, char* argv[])
 
         render(&state, global_square_texture);
 
+        SDL_Color text_color = {255, 255, 255};  // White color
+        render_centered_text_with_scaling("Help! I'm trapped in some empty hellscape.",
+                                          LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2,
+                                          LOGICAL_WIDTH * 0.9f,
+                                          text_color);
+
 #if 0
         // Eat CPU time to test debug stuff
         auto start = std::chrono::high_resolution_clock::now();
@@ -391,31 +363,30 @@ int32 main(int32 argc, char* argv[])
         real64 mega_cycles_per_frame = global_total_cycles_elapsed / (1000.0f * 1000.0f);
 #endif
 
-        SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
         // Disable logical size scaling temporarily
         SDL_RenderSetLogicalSize(global_renderer, 0, 0);
 
         SDL_Color debug_text_color = {255, 255, 255};  // White color
+        real32 y_offset = 0;
+        real32 padding = 5.0f;
 
         if (global_debug_counter == 0)
         {
 #ifdef __WIN32__
-            snprintf(debug_text, sizeof(debug_text), "Mega cycles/Frame: %.02f", mega_cycles_for_actual_work);
+            snprintf(mega_cycles_text, sizeof(mega_cycles_text), "Mega cycles/Frame: %.02f", mega_cycles_for_actual_work);
 #endif
         }
 
-        real32 y_offset = 0;
-        real32 padding = 5.0f;
-
-        SDL_Surface* debug_text_surface = TTF_RenderText_Blended(global_debug_font, debug_text, debug_text_color);
+        SDL_Surface* debug_text_surface = TTF_RenderText_Blended(global_debug_font, mega_cycles_text, debug_text_color);
         SDL_Texture* debug_text_texture = SDL_CreateTextureFromSurface(global_renderer, debug_text_surface);
         SDL_FreeSurface(debug_text_surface);
 
         SDL_Rect debug_text_rect = {};
 
         // TTF_SetFontSize(global_font, 512);
-        TTF_SizeText(global_debug_font, debug_text, &debug_text_rect.w, &debug_text_rect.h);
+        TTF_SizeText(global_debug_font, mega_cycles_text, &debug_text_rect.w, &debug_text_rect.h);
 
         debug_text_rect.x = (int32)(LOGICAL_WIDTH * 0.01f);
         debug_text_rect.y = (int32)(LOGICAL_HEIGHT * 0.01f);
@@ -430,30 +401,18 @@ int32 main(int32 argc, char* argv[])
 
         if (global_debug_counter == 0)
         {
-#ifdef __WIN32__
-            snprintf(debug_text_2, sizeof(debug_text_2), "FPS: %.02f", fps);
-#endif
+            snprintf(fps_text, sizeof(fps_text), "FPS: %.02f", fps);
         }
 
-        SDL_Surface* debug_text_surface_2 = TTF_RenderText_Blended(global_debug_font, debug_text_2, debug_text_color);
-        SDL_Texture* debug_text_texture_2 = SDL_CreateTextureFromSurface(global_renderer, debug_text_surface_2);
-        SDL_FreeSurface(debug_text_surface_2);
-
-        SDL_Rect debug_text_rect_2 = {};
-
-        // TTF_SetFontSize(global_font, 512);
-        TTF_SizeText(global_debug_font, debug_text_2, &debug_text_rect_2.w, &debug_text_rect_2.h);
-
-        debug_text_rect_2.x = (int32)(LOGICAL_WIDTH * 0.01f);
-        debug_text_rect_2.y = (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f);
-
-        SDL_RenderCopy(global_renderer, debug_text_texture_2, NULL, &debug_text_rect_2);
-
-        // Re-enable logical size scaling for other elements
-        SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
-
+        render_text_no_scaling(fps_text,
+                               (int32)(LOGICAL_WIDTH * 0.01f),
+                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                               debug_text_color);
         y_offset += debug_text_rect.h + padding;
 
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        // Re-enable logical size scaling for other elements
+        SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
 #if 0
         if (global_debug_counter == 0)

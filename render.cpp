@@ -16,58 +16,52 @@ void draw_rect(SDL_Rect rect, SDL_Color color) {
     SDL_RenderFillRect(global_renderer, &rect);
 }
 
-// Function to create a text texture
-SDL_Texture* createTextTexture(SDL_Renderer* renderer,
-                               TTF_Font* font,
-                               const char* text,
-                               SDL_Color color,
-                               SDL_Rect& text_rect,
-                               real32 world_space_size)
-{
-    // Create a surface for the text
-    SDL_Surface* textSurface = TTF_RenderText_Blended(font, text, color);
-    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-    TTF_SizeText(global_font, text, &text_rect.w, &text_rect.h);
-    SDL_FreeSurface(textSurface);
+void render_centered_text_with_scaling(const char* text, int32 x, int32 y, real32 desired_width, SDL_Color text_color)
+{   
+    SDL_Surface* surface = TTF_RenderText_Blended(global_font, text, text_color);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+    SDL_FreeSurface(surface);
 
-    return textTexture;
-}
+    SDL_Rect rect = {};
 
-// Usage in render function:
-void render_text(State* state,
-                 SDL_Rect drawable_canvas,
-                 const char* message,
-                 TTF_Font* font,
-                 real32 world_space_x,
-                 real32 world_space_y,
-                 real32 world_space_size,
-                 SDL_Color text_color)
-{
-    SDL_Rect text_rect = {};
-     // Calculate the actual position based on world space
-    real32 normalized_x = world_space_x * RENDER_SCALE;
-    real32 normalized_y = world_space_y * RENDER_SCALE;
+    TTF_SizeText(global_font, text, &rect.w, &rect.h);
 
-    // TTF_SetFontOutline(font, 4);
+    real32 text_aspect_ratio = (real32)rect.w / (real32)rect.h;
+    rect.w = (int32)desired_width;
+    rect.h = int32(desired_width / text_aspect_ratio);
 
-    SDL_Texture* textTexture =
-        createTextTexture(global_renderer, font, message, text_color, text_rect, world_space_size);
+    rect.x = x;
+    rect.y = y;
 
-    // Scale text to match world space size
-    real32 scale_factor = world_space_size * RENDER_SCALE * ((real32)drawable_canvas.w / text_rect.w);
-    text_rect.w = (int32)(text_rect.w * scale_factor);
-    text_rect.h = (int32)(text_rect.h * scale_factor);
+    // Center
+    rect.x -= rect.w / 2;
+    rect.y -= rect.h / 2;
 
-    text_rect.x =
-        drawable_canvas.x + (drawable_canvas.w / 2) + (int32)(normalized_x * drawable_canvas.w / 2) - (text_rect.w / 2);
-    text_rect.y = drawable_canvas.y + (drawable_canvas.h / 2) +
-                  (int32)(normalized_y * drawable_canvas.h / 2 * ABSOLUTE_ASPECT_RATIO) - (text_rect.h / 2);
-
-    // Render the text texture onto the canvas
-    SDL_RenderCopy(global_renderer, textTexture, nullptr, &text_rect);
+    SDL_RenderCopy(global_renderer, texture, NULL, &rect);
 
     // Cleanup
-    SDL_DestroyTexture(textTexture);
+    SDL_DestroyTexture(texture);
+}
+
+void render_text_no_scaling(const char* text, int32 x, int32 y, SDL_Color text_color)
+{   // NOTE: text is left-aligned
+    
+    SDL_Surface* surface = TTF_RenderText_Blended(global_debug_font, text, text_color);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+    SDL_FreeSurface(surface);
+
+    SDL_Rect rect = {};
+
+    // TTF_SetFontSize(global_font, 512);
+    TTF_SizeText(global_debug_font, text, &rect.w, &rect.h);
+
+    rect.x = x;
+    rect.y = y;
+
+    SDL_RenderCopy(global_renderer, texture, NULL, &rect);
+
+    // Cleanup
+    SDL_DestroyTexture(texture);
 }
 
 struct Screen_Space_Position {
