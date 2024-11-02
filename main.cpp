@@ -51,7 +51,7 @@ int32 window_height = LOGICAL_HEIGHT;
 real32 SIMULATION_FPS = 100;
 real32 SIMULATION_DELTA_TIME_S = 1.f / SIMULATION_FPS;
 
-real32 TARGET_SCREEN_FPS = 59.9f;
+real32 TARGET_SCREEN_FPS = 58.9f;
 real32 TARGET_TIME_PER_FRAME_S = 1.f / (real32)TARGET_SCREEN_FPS;
 real32 TARGET_TIME_PER_FRAME_MS = 1000.f / (real32)TARGET_SCREEN_FPS;
 
@@ -76,7 +76,8 @@ struct Master_Timer {
     Uint64 last_frame_counter;
     Uint64 COUNTER_FREQUENCY;
 
-    real32 frame_time_elapsed_before_sleep__seconds; // Useful to see how much time was really needed
+    real32 frame_time_elapsed_before_render__seconds; // Useful to see how much time was really needed
+    real32 render_time__seconds; // See 
     real32 total_frame_time_elapsed__seconds; // After the sleep or vsync block
 
     real64 physics_simluation_elapsed_time__seconds;
@@ -84,7 +85,8 @@ struct Master_Timer {
 
 #ifdef __WIN32__
 uint64 global_last_cycle_count;
-uint64 global_cycles_elapsed_without_delay;
+uint64 global_cycles_elapsed_before_render;
+uint64 global_cycles_elapsed_after_render;
 uint64 global_total_cycles_elapsed;
 #endif
 
@@ -92,17 +94,30 @@ void update_timer(Master_Timer* t, bool32 vsync_enabled)
 {
 #ifdef __WIN32__
     uint64 global_cycle_count_now = __rdtsc();
-    global_cycles_elapsed_without_delay = global_cycle_count_now - global_last_cycle_count;
+    global_cycles_elapsed_before_render = global_cycle_count_now - global_last_cycle_count;
 #endif
 
     Uint64 counter_now = SDL_GetPerformanceCounter();
 
-    t->frame_time_elapsed_before_sleep__seconds =
+    t->frame_time_elapsed_before_render__seconds =
         ((real32)(counter_now - t->last_frame_counter) / (real32)t->COUNTER_FREQUENCY);
+
+    // Present the rendered content
+    SDL_RenderPresent(global_renderer);
+    SDL_SetRenderTarget(global_renderer, NULL);
+
+#ifdef __WIN32__
+    uint64 global_cycle_count_after_render = __rdtsc();
+    global_cycles_elapsed_after_render = global_cycle_count_after_render - global_cycle_count_now;
+#endif
+
+    Uint64 counter_after_render = SDL_GetPerformanceCounter();
+    t->render_time__seconds =
+        ((real32)(counter_after_render - counter_now) / (real32)t->COUNTER_FREQUENCY);
 
     if (!vsync_enabled)
     {
-        real32 sleep_time_s = TARGET_TIME_PER_FRAME_S - t->frame_time_elapsed_before_sleep__seconds;
+        real32 sleep_time_s = TARGET_TIME_PER_FRAME_S - t->frame_time_elapsed_before_render__seconds;
 
         if (sleep_time_s > 0)
         {
@@ -131,7 +146,7 @@ void update_timer(Master_Timer* t, bool32 vsync_enabled)
     t->last_frame_counter = counter_after_sleep;
 
 #ifdef __WIN32__
-    global_last_cycle_count = global_cycle_count_now;
+    global_last_cycle_count = global_end_cycle_count_after_delay;
 #endif
 }
 
@@ -274,10 +289,14 @@ int32 main(int32 argc, char* argv[])
 
 #ifdef __WIN32__
     char mega_cycles_text[100] = "";
+    char actual_mega_cycles_text[100] = "";
+    char render_mega_cycles_text[100] = "";
 #endif
 
     char fps_text[100] = "";
     char ms_per_frame_text[100] = "";
+    char work_ms_per_frame_text[100] = "";
+    char render_ms_per_frame_text[100] = "";
 
     bool32 vsync_enabled = 1;
 #ifdef __APPLE__
@@ -292,8 +311,6 @@ int32 main(int32 argc, char* argv[])
         SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
         SDL_RenderClear(global_renderer);
 
-        update_timer(&master_timer, vsync_enabled);
-        // printf("Time elapsed: %.2f\n", master_timer.physics_simluation_elapsed_time__seconds);
         handle_input(&event, &input);
 
         if (global_paused)
@@ -337,11 +354,13 @@ int32 main(int32 argc, char* argv[])
 
         render(&state, global_square_texture);
 
+#if 1
         SDL_Color text_color = {255, 255, 255};  // White color
         render_centered_text_with_scaling("Help! I'm trapped in some empty hellscape.",
                                           LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2,
                                           LOGICAL_WIDTH * 0.9f,
                                           text_color);
+#endif
 
 #if 0
         // Eat CPU time to test debug stuff
@@ -358,9 +377,24 @@ int32 main(int32 argc, char* argv[])
         }
 #endif
 
-#ifdef __WIN32__
-        real64 mega_cycles_for_actual_work = global_cycles_elapsed_without_delay / (1000.0f * 1000.0f);
-        real64 mega_cycles_per_frame = global_total_cycles_elapsed / (1000.0f * 1000.0f);
+#if 0
+        // Eat CPU time to test debug stuff
+        uint64 target_cycles = (uint64)(0.01 * 1000.0f * 1000.0f * 1000.0f); // Adjust this to simulate the desired load
+        uint64 start_cycles = __rdtsc();
+
+        while (true) {
+            // Perform some dummy operations to keep the CPU busy
+            volatile uint32 dummy = 0;
+            for (uint32 i = 0; i < 1000; ++i) {
+                dummy += i;
+            }
+
+            // Check the current cycle count
+            uint64 current_cycles = __rdtsc();
+            if ((current_cycles - start_cycles) >= target_cycles) {
+                break;
+            }
+        }
 #endif
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -370,30 +404,62 @@ int32 main(int32 argc, char* argv[])
 
         SDL_Color debug_text_color = {255, 255, 255};  // White color
         real32 y_offset = 0;
+        int32 font_height = TTF_FontHeight(global_debug_font);
         real32 padding = 5.0f;
+        real32 vertical_offset = font_height + padding;
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+#ifdef __WIN32__
+        real64 mega_cycles_per_frame = global_total_cycles_elapsed / (1000.0f * 1000.0f);
+        real64 mega_cycles_for_actual_work = global_cycles_elapsed_before_render / (1000.0f * 1000.0f);
+        real64 mega_cycles_for_render = global_cycles_elapsed_after_render / (1000.0f * 1000.0f);
 
         if (global_debug_counter == 0)
         {
-#ifdef __WIN32__
-            snprintf(mega_cycles_text, sizeof(mega_cycles_text), "Mega cycles/Frame: %.02f", mega_cycles_for_actual_work);
-#endif
+            snprintf(mega_cycles_text, sizeof(mega_cycles_text), "Mega cycles/Frame: %.02f", mega_cycles_per_frame);
         }
 
-        SDL_Surface* debug_text_surface = TTF_RenderText_Blended(global_debug_font, mega_cycles_text, debug_text_color);
-        SDL_Texture* debug_text_texture = SDL_CreateTextureFromSurface(global_renderer, debug_text_surface);
-        SDL_FreeSurface(debug_text_surface);
+        render_text_no_scaling(mega_cycles_text,
+                               (int32)(LOGICAL_WIDTH * 0.01f),
+                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                               debug_text_color);
+        y_offset += vertical_offset;
 
-        SDL_Rect debug_text_rect = {};
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-        // TTF_SetFontSize(global_font, 512);
-        TTF_SizeText(global_debug_font, mega_cycles_text, &debug_text_rect.w, &debug_text_rect.h);
+        if (global_debug_counter == 0)
+        {
+            snprintf(actual_mega_cycles_text,
+                     sizeof(actual_mega_cycles_text),
+                     "Work mega cycles/Frame: %.02f",
+                     mega_cycles_for_actual_work);
+        }
 
-        debug_text_rect.x = (int32)(LOGICAL_WIDTH * 0.01f);
-        debug_text_rect.y = (int32)(LOGICAL_HEIGHT * 0.01f);
+        render_text_no_scaling(actual_mega_cycles_text,
+                               (int32)(LOGICAL_WIDTH * 0.01f),
+                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                               debug_text_color);
+        y_offset += vertical_offset;
 
-        SDL_RenderCopy(global_renderer, debug_text_texture, NULL, &debug_text_rect);
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-        y_offset += debug_text_rect.h + padding;
+        if (global_debug_counter == 0)
+        {
+            snprintf(render_mega_cycles_text,
+                     sizeof(render_mega_cycles_text),
+                     "Render mega cycles/Frame: %.02f",
+                     mega_cycles_for_render);
+        }
+
+        render_text_no_scaling(render_mega_cycles_text,
+                               (int32)(LOGICAL_WIDTH * 0.01f),
+                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                               debug_text_color);
+        y_offset += vertical_offset;
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#endif
 
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -408,13 +474,81 @@ int32 main(int32 argc, char* argv[])
                                (int32)(LOGICAL_WIDTH * 0.01f),
                                (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
                                debug_text_color);
-        y_offset += debug_text_rect.h + padding;
+        y_offset += vertical_offset;
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        real32 ms_per_frame = master_timer.total_frame_time_elapsed__seconds * 1000.0f;
+
+        if (global_debug_counter == 0)
+        {
+            snprintf(ms_per_frame_text,
+                     sizeof(ms_per_frame_text),
+                     "Ms/frame: %.04f (Target: %.04f)",
+                     ms_per_frame,
+                     TARGET_TIME_PER_FRAME_MS);
+        }
+
+        render_text_no_scaling(ms_per_frame_text,
+                               (int32)(LOGICAL_WIDTH * 0.01f),
+                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                               debug_text_color);
+        y_offset += vertical_offset;
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        real32 work_ms_per_frame = master_timer.frame_time_elapsed_before_render__seconds * 1000.0f;
+
+        SDL_Color work_ms_per_frame_text_color;
+
+        if (work_ms_per_frame < TARGET_TIME_PER_FRAME_MS)
+        {
+            work_ms_per_frame_text_color = debug_text_color;
+        } else
+        {
+            work_ms_per_frame_text_color = { 185, 80, 75 };
+        }
+
+        if (global_debug_counter == 0)
+        {
+            snprintf(work_ms_per_frame_text,
+                     sizeof(work_ms_per_frame_text),
+                     "Work ms: %.04f, (%.1f%%)",
+                     work_ms_per_frame,
+                     (work_ms_per_frame / ms_per_frame) * 100);
+        }
+
+        render_text_no_scaling(work_ms_per_frame_text,
+                               (int32)(LOGICAL_WIDTH * 0.01f),
+                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                               work_ms_per_frame_text_color);
+        y_offset += vertical_offset;
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+        real32 render_ms_per_frame = master_timer.render_time__seconds * 1000.0f;
+
+        if (global_debug_counter == 0)
+        {
+            snprintf(render_ms_per_frame_text,
+                     sizeof(render_ms_per_frame_text),
+                     "Render ms: %.04f, (%.1f%%)",
+                     render_ms_per_frame,
+                     (render_ms_per_frame / ms_per_frame) * 100);
+        }
+
+        render_text_no_scaling(render_ms_per_frame_text,
+                               (int32)(LOGICAL_WIDTH * 0.01f),
+                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                               debug_text_color);
+        y_offset += vertical_offset;
+
+        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         // Re-enable logical size scaling for other elements
         SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
-#if 0
         if (global_debug_counter == 0)
         {
             char fps_str[30];  // Allocate enough space for the string
@@ -438,19 +572,17 @@ int32 main(int32 argc, char* argv[])
 
             SDL_SetWindowTitle(global_window, title_str);
         }
-#endif
 
         global_debug_counter += master_timer.total_frame_time_elapsed__seconds;
 
         // Tick every second
-        if (global_debug_counter >= 1.0f)
+        if (global_debug_counter >= 0.2)
         {
             global_debug_counter = 0;
         }
 
-        // Present the rendered content
-        SDL_RenderPresent(global_renderer);
-        SDL_SetRenderTarget(global_renderer, NULL);
+        update_timer(&master_timer, vsync_enabled);
+        // printf("Time elapsed: %.2f\n", master_timer.physics_simluation_elapsed_time__seconds);
     }
 
     TTF_CloseFont(global_font);

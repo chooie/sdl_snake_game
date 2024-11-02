@@ -13,7 +13,7 @@ TODO
     x Simplest solution would be to draw boxes that look like letters (like the pong tutorial I did)
     / I can use SDL_ttf apparently, too
 / Render some debug text (e.g. fps, cpu cycles/frame)
-    ? Render multiple debug texts in a column (millis/frame, fps, actual megacyles/frame, budgeted megacycles/frame,
+    / Render multiple debug texts in a column (millis/frame, fps, actual megacyles/frame, budgeted megacycles/frame,
       actual/budgeted - i.e. percent utilization)
     ? Can toggle the debug text on and off
 ? Make a game prototype

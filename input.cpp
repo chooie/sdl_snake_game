@@ -61,7 +61,7 @@ void handle_input(SDL_Event* event, Input* input)
                     // } break;
                     case SDLK_f:
                     {
-                        int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN;
+                        int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN_DESKTOP;
                         if (isFullScreen)
                         {
                             SDL_SetWindowFullscreen(global_window, 0);
@@ -83,7 +83,7 @@ void handle_input(SDL_Event* event, Input* input)
                             {
                                 SDL_Log("Failed to set window display mode: %s", SDL_GetError());
                             }
-                            SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN);
+                            SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
                             SDL_ShowCursor(SDL_DISABLE);
                             SDL_SetRelativeMouseMode(SDL_TRUE);
                         }
