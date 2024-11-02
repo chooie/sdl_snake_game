@@ -70,10 +70,26 @@ void handle_input(SDL_Event* event, Input* input)
                         }
                         else
                         {
-                            SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+                            // Get the desktop display mode for the main monitor (usually display index 0)
+                            SDL_DisplayMode desktop_mode;
+                            if (SDL_GetDesktopDisplayMode(0, &desktop_mode) != 0)
+                            {
+                                SDL_Log("Failed to get desktop display mode: %s", SDL_GetError());
+                                return;
+                            }
+
+                            // Set the display mode to match the desktop (native) resolution and refresh rate
+                            if (SDL_SetWindowDisplayMode(global_window, &desktop_mode) != 0)
+                            {
+                                SDL_Log("Failed to set window display mode: %s", SDL_GetError());
+                            }
+                            SDL_SetWindowFullscreen(global_window, SDL_WINDOW_FULLSCREEN);
                             SDL_ShowCursor(SDL_DISABLE);
                             SDL_SetRelativeMouseMode(SDL_TRUE);
                         }
+
+                        // TODO: this is probably a memory leak. Need to destroy the texture every time we recreate it
+                        global_square_texture = createSquareTexture(global_renderer, window_width / 4);
                     }
                     break;
                 }

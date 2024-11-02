@@ -149,6 +149,30 @@ void update_timer(Master_Timer* t, bool32 vsync_enabled)
 #endif
 }
 
+SDL_Texture* global_square_texture;
+
+SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
+{
+    // Create an SDL texture to represent the square
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, size, size);
+
+    // Set the texture as the rendering target
+    SDL_SetRenderTarget(renderer, texture);
+
+    // Clear the texture (make it transparent)
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);  // Fully transparent
+    SDL_RenderClear(renderer);
+
+    SDL_SetRenderDrawColor(renderer, 247, 202, 136, 255);
+    SDL_Rect square = {0, 0, size, size};              // The square fills the texture
+    SDL_RenderFillRect(renderer, &square);
+
+    // Reset the render target back to the default window
+    SDL_SetRenderTarget(renderer, nullptr);
+
+    return texture;
+}
+
 #include "input.cpp"
 #include "game.cpp"
 #include "render.cpp"
@@ -255,7 +279,7 @@ int32 main(int32 argc, char* argv[])
 
     // SDL_QueryTexture(global_text_texture, nullptr, nullptr, &global_text_rect.w, &global_text_rect.h);
 
-    SDL_Texture* square_texture = createSquareTexture(global_renderer, window_width / 4);
+    global_square_texture = createSquareTexture(global_renderer, window_width / 4);
 
     SDL_Event event;
     Input input = {};
@@ -345,7 +369,7 @@ int32 main(int32 argc, char* argv[])
         // NOTE: the render always lags by about a frame
         State state = current_state * alpha + previous_state * (1.0f - alpha);
 
-        render(&state, square_texture);
+        render(&state, global_square_texture);
 
 #if 0
         // Eat CPU time to test debug stuff
@@ -369,6 +393,9 @@ int32 main(int32 argc, char* argv[])
 
         SDL_RenderCopy(global_renderer, global_text_texture, nullptr, &global_text_rect);
 
+        // Disable logical size scaling temporarily
+        SDL_RenderSetLogicalSize(global_renderer, 0, 0);
+
         SDL_Color debug_text_color = {255, 255, 255};  // White color
 
         if (global_debug_counter == 0)
@@ -389,19 +416,13 @@ int32 main(int32 argc, char* argv[])
 
         // TTF_SetFontSize(global_font, 512);
         TTF_SizeText(global_debug_font, debug_text, &debug_text_rect.w, &debug_text_rect.h);
-        y_offset += debug_text_rect.h + padding;
 
         debug_text_rect.x = (int32)(LOGICAL_WIDTH * 0.01f);
         debug_text_rect.y = (int32)(LOGICAL_HEIGHT * 0.01f);
 
-        // Disable logical size scaling temporarily
-        SDL_RenderSetLogicalSize(global_renderer, 0, 0);
-
-        // Draw the text at its exact physical size
         SDL_RenderCopy(global_renderer, debug_text_texture, NULL, &debug_text_rect);
 
-        // Re-enable logical size scaling for other elements
-        SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        y_offset += debug_text_rect.h + padding;
 
         //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -426,15 +447,15 @@ int32 main(int32 argc, char* argv[])
         debug_text_rect_2.x = (int32)(LOGICAL_WIDTH * 0.01f);
         debug_text_rect_2.y = (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f);
 
-        // Disable logical size scaling temporarily
-        SDL_RenderSetLogicalSize(global_renderer, 0, 0);
-
-        // Draw the text at its exact physical size
         SDL_RenderCopy(global_renderer, debug_text_texture_2, NULL, &debug_text_rect_2);
 
         // Re-enable logical size scaling for other elements
         SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
 
+        y_offset += debug_text_rect.h + padding;
+
+
+#if 0
         if (global_debug_counter == 0)
         {
             char fps_str[30];  // Allocate enough space for the string
@@ -458,6 +479,7 @@ int32 main(int32 argc, char* argv[])
 
             SDL_SetWindowTitle(global_window, title_str);
         }
+#endif
 
         global_debug_counter += master_timer.total_frame_time_elapsed__seconds;
 

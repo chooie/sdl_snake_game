@@ -1,28 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
-SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
-{
-    // Create an SDL texture to represent the square
-    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, size, size);
-
-    // Set the texture as the rendering target
-    SDL_SetRenderTarget(renderer, texture);
-
-    // Clear the texture (make it transparent)
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);  // Fully transparent
-    SDL_RenderClear(renderer);
-
-    SDL_SetRenderDrawColor(renderer, 247, 202, 136, 255);
-    SDL_Rect square = {0, 0, size, size};              // The square fills the texture
-    SDL_RenderFillRect(renderer, &square);
-
-    // Reset the render target back to the default window
-    SDL_SetRenderTarget(renderer, nullptr);
-
-    return texture;
-}
-
 struct Color_RGBA
 {
     uint8 red;
@@ -32,32 +10,6 @@ struct Color_RGBA
 };
 
 real32 RENDER_SCALE = 0.01f;
-
-/*
-Draw from world space to canvas in window
-Coords are in -100 to 100 space in x direction
-Because the aspect ratio is 16 / 9, coords are -56.25 to 56.25 in y direction
-*/
-void draw_square_old(SDL_Rect drawable_canvas,
-                     real32 world_space_x, real32 world_space_y,
-                     real32 world_space_size,
-                     Color_RGBA color)
-{
-    real32 normalized_x = world_space_x * RENDER_SCALE;
-    real32 normalized_y = world_space_y * RENDER_SCALE;
-    real32 actual_x = normalized_x * LOGICAL_WIDTH + (LOGICAL_WIDTH / 2);
-    real32 actual_y = normalized_y * LOGICAL_WIDTH + (LOGICAL_HEIGHT / 2);
-    real32 actual_square_size = world_space_size * RENDER_SCALE * LOGICAL_WIDTH;
-
-    SDL_Rect square = {};
-    square.x = (int32)(actual_x - (actual_square_size / 2));
-    square.y = (int32)(actual_y - (actual_square_size / 2));
-    square.w = (int32)actual_square_size;
-    square.h = (int32)actual_square_size;
-
-    SDL_SetRenderDrawColor(global_renderer, color.red, color.green, color.blue, color.alpha);
-    SDL_RenderFillRect(global_renderer, &square);
-}
 
 void draw_rect(SDL_Rect rect, SDL_Color color) {
     SDL_SetRenderDrawColor(global_renderer, color.r, color.g, color.b, color.a);
