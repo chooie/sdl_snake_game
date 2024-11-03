@@ -108,6 +108,7 @@ void render(State* state)
     SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
     SDL_RenderFillRect(global_renderer, &drawable_canvas);
 
+#if 0
     {  // Draw Grid
 
         /*
@@ -155,6 +156,7 @@ void render(State* state)
             }
         }
     }
+#endif
 
     { // Draw Player
         Screen_Space_Position square_screen_pos =
