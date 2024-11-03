@@ -14,6 +14,7 @@ struct State {
     real32 pos_y;
 
     Direction direction;
+    bool32 direction_locked;
     real32 velocity_x;
     real32 velocity_y;
 
@@ -23,7 +24,6 @@ struct State {
         State result;
         result.pos_x = pos_x * scalar;
         result.pos_y = pos_y * scalar;
-        result.direction = direction;
         result.velocity_x = velocity_x * scalar;
         result.velocity_y = velocity_y * scalar;
         return result;
@@ -35,7 +35,6 @@ struct State {
         State result;
         result.pos_x = pos_x + other.pos_x;
         result.pos_y = pos_y + other.pos_y;
-        result.direction = direction;
         result.velocity_x = velocity_x + other.velocity_x;
         result.velocity_y = velocity_y + other.velocity_y;
         return result;
@@ -44,42 +43,68 @@ struct State {
 
 void simulate(State* state, Input* input, real64 simulation_time_elapsed, real32 dt_s)
 {
-
     // TODO: should only be able to read one button at a time?
-    if (is_down(BUTTON_W))
+    if (is_down(BUTTON_W) && !state->direction_locked)
     {
         if (state->direction != DIRECTION_SOUTH)
         {
             state->direction = DIRECTION_NORTH;
+            state->direction_locked = 1;
         }
-        // printf("Holding down W...\n");
     }
-
-    if (is_down(BUTTON_A))
+    
+    if (is_down(BUTTON_A) && !state->direction_locked)
     {
         if (state->direction != DIRECTION_EAST)
         {
             state->direction = DIRECTION_WEST;
+            state->direction_locked = 1;
         }
-        // printf("Holding down A...\n");
     }
-
-    if (is_down(BUTTON_S))
+    
+    if (is_down(BUTTON_S) && !state->direction_locked)
     {
         if (state->direction != DIRECTION_NORTH)
         {
             state->direction = DIRECTION_SOUTH;
+            state->direction_locked = 1;
         }
-        // printf("Holding down S...\n");
     }
-
-    if (is_down(BUTTON_D))
+    
+    if (is_down(BUTTON_D) && !state->direction_locked)
     {
         if (state->direction != DIRECTION_WEST)
         {
             state->direction = DIRECTION_EAST;
+            state->direction_locked = 1;
         }
-        // printf("Holding down D...\n");
+    }
+
+    if (state->direction_locked) {
+        if (released(BUTTON_W)) {
+            if (state->direction == DIRECTION_NORTH)
+            {
+                state->direction_locked = 0;
+            }
+        } else if (released(BUTTON_A))
+        {
+            if (state->direction == DIRECTION_WEST)
+            {
+                state->direction_locked = 0;
+            }
+        } else if (released(BUTTON_S))
+        {
+            if (state->direction == DIRECTION_SOUTH)
+            {
+                state->direction_locked = 0;
+            }
+        } else if (released(BUTTON_D))
+        {
+            if (state->direction == DIRECTION_EAST)
+            {
+                state->direction_locked = 0;
+            }
+        }
     }
 
     switch (state->direction)
