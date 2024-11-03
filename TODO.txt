@@ -27,6 +27,9 @@ Nice-to-haves
 
 Cleanup/Best-practice
 -------
+? HOW DO I STOP RE-RENDERING TEXTURES EVERY FRAME
+    - I can use a bitmap
+    - I can just re-render textures for dynamic text and cache the static text textures
 ? Get rid of all the duplicate SDL2 includes
 
 Notes
