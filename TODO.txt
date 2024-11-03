@@ -15,7 +15,7 @@ TODO
 / Render some debug text (e.g. fps, cpu cycles/frame)
     / Render multiple debug texts in a column (millis/frame, fps, actual megacyles/frame, budgeted megacycles/frame,
       actual/budgeted - i.e. percent utilization)
-    ? Can toggle the debug text on and off
+    / Can toggle the debug text on and off
 ? Make a game prototype
     e.g. Snake
 ? Play sound

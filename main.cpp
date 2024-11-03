@@ -59,7 +59,7 @@ int32 global_running = 1;
 SDL_Window* global_window;
 SDL_Renderer* global_renderer;
 Uint64 GLOBAL_PERFORMANCE_FREQUENCY;
-bool32 global_paused = 0;
+
 Uint64 global_counter_last_frame;
 
 TTF_Font* global_font;
@@ -67,6 +67,9 @@ TTF_Font* global_debug_font;
 SDL_Rect global_text_rect;
 SDL_Surface* global_text_surface;
 SDL_Texture* global_text_texture;
+
+bool32 global_display_debug_info;
+bool32 global_paused;
 
 real32 global_debug_counter;
 Uint64 global_tick_counter_before;
@@ -278,6 +281,9 @@ int32 main(int32 argc, char* argv[])
 
     real32 accumulator_s = 0.0f;
 
+    global_paused = 0;
+    global_display_debug_info = 0;
+
     State previous_state = {};
     State current_state = {};
     
@@ -377,7 +383,7 @@ int32 main(int32 argc, char* argv[])
         }
 #endif
 
-#if 0
+#if 1
         // Eat CPU time to test debug stuff
         uint64 target_cycles = (uint64)(0.01 * 1000.0f * 1000.0f * 1000.0f); // Adjust this to simulate the desired load
         uint64 start_cycles = __rdtsc();
@@ -397,160 +403,166 @@ int32 main(int32 argc, char* argv[])
         }
 #endif
 
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        if (global_display_debug_info)
+        {  // Render Debug Info
 
-        // Disable logical size scaling temporarily
-        SDL_RenderSetLogicalSize(global_renderer, 0, 0);
+            // Disable logical size scaling temporarily
+            SDL_RenderSetLogicalSize(global_renderer, 0, 0);
 
-        SDL_Color debug_text_color = {255, 255, 255};  // White color
-        real32 y_offset = 0;
-        int32 font_height = TTF_FontHeight(global_debug_font);
-        real32 padding = 5.0f;
-        real32 vertical_offset = font_height + padding;
-
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            SDL_Color debug_text_color = {255, 255, 255};  // White color
+            real32 y_offset = 0;
+            int32 font_height = TTF_FontHeight(global_debug_font);
+            real32 padding = 5.0f;
+            real32 vertical_offset = font_height + padding;
 
 #ifdef __WIN32__
-        real64 mega_cycles_per_frame = global_total_cycles_elapsed / (1000.0f * 1000.0f);
-        real64 mega_cycles_for_actual_work = global_cycles_elapsed_before_render / (1000.0f * 1000.0f);
-        real64 mega_cycles_for_render = global_cycles_elapsed_after_render / (1000.0f * 1000.0f);
+            {  // Mega Cycles Per Frame
+                real64 mega_cycles_per_frame = global_total_cycles_elapsed / (1000.0f * 1000.0f);
 
-        if (global_debug_counter == 0)
-        {
-            snprintf(mega_cycles_text, sizeof(mega_cycles_text), "Mega cycles/Frame: %.02f", mega_cycles_per_frame);
-        }
+                if (global_debug_counter == 0)
+                {
+                    snprintf(mega_cycles_text,
+                             sizeof(mega_cycles_text),
+                             "Mega cycles/Frame: %.02f",
+                             mega_cycles_per_frame);
+                }
 
-        render_text_no_scaling(mega_cycles_text,
-                               (int32)(LOGICAL_WIDTH * 0.01f),
-                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                               debug_text_color);
-        y_offset += vertical_offset;
+                render_text_no_scaling(mega_cycles_text,
+                                       (int32)(LOGICAL_WIDTH * 0.01f),
+                                       (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                       debug_text_color);
+                y_offset += vertical_offset;
+            }
 
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            {  // Work Cycles Per Frame
+                real64 mega_cycles_for_actual_work = global_cycles_elapsed_before_render / (1000.0f * 1000.0f);
 
-        if (global_debug_counter == 0)
-        {
-            snprintf(actual_mega_cycles_text,
-                     sizeof(actual_mega_cycles_text),
-                     "Work mega cycles/Frame: %.02f",
-                     mega_cycles_for_actual_work);
-        }
+                if (global_debug_counter == 0)
+                {
+                    snprintf(actual_mega_cycles_text,
+                             sizeof(actual_mega_cycles_text),
+                             "Work mega cycles/Frame: %.02f",
+                             mega_cycles_for_actual_work);
+                }
 
-        render_text_no_scaling(actual_mega_cycles_text,
-                               (int32)(LOGICAL_WIDTH * 0.01f),
-                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                               debug_text_color);
-        y_offset += vertical_offset;
+                render_text_no_scaling(actual_mega_cycles_text,
+                                       (int32)(LOGICAL_WIDTH * 0.01f),
+                                       (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                       debug_text_color);
+                y_offset += vertical_offset;
+            }
 
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            {  // Render Cycles Per Frame
+                real64 mega_cycles_for_render = global_cycles_elapsed_after_render / (1000.0f * 1000.0f);
 
-        if (global_debug_counter == 0)
-        {
-            snprintf(render_mega_cycles_text,
-                     sizeof(render_mega_cycles_text),
-                     "Render mega cycles/Frame: %.02f",
-                     mega_cycles_for_render);
-        }
+                if (global_debug_counter == 0)
+                {
+                    snprintf(render_mega_cycles_text,
+                             sizeof(render_mega_cycles_text),
+                             "Render mega cycles/Frame: %.02f",
+                             mega_cycles_for_render);
+                }
 
-        render_text_no_scaling(render_mega_cycles_text,
-                               (int32)(LOGICAL_WIDTH * 0.01f),
-                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                               debug_text_color);
-        y_offset += vertical_offset;
-
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                render_text_no_scaling(render_mega_cycles_text,
+                                       (int32)(LOGICAL_WIDTH * 0.01f),
+                                       (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                       debug_text_color);
+                y_offset += vertical_offset;
+            }
 #endif
 
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+            {  // FPS
+                real32 fps = 1.0f / master_timer.total_frame_time_elapsed__seconds;
 
-        real32 fps = 1.0f / master_timer.total_frame_time_elapsed__seconds;
+                if (global_debug_counter == 0)
+                {
+                    snprintf(fps_text, sizeof(fps_text), "FPS: %.02f", fps);
+                }
+
+                render_text_no_scaling(fps_text,
+                                       (int32)(LOGICAL_WIDTH * 0.01f),
+                                       (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                       debug_text_color);
+                y_offset += vertical_offset;
+            }
+
+            real32 ms_per_frame = master_timer.total_frame_time_elapsed__seconds * 1000.0f;
+
+            {  // Total Frame Time (MS)
+
+                if (global_debug_counter == 0)
+                {
+                    snprintf(ms_per_frame_text,
+                             sizeof(ms_per_frame_text),
+                             "Ms/frame: %.04f (Target: %.04f)",
+                             ms_per_frame,
+                             TARGET_TIME_PER_FRAME_MS);
+                }
+
+                render_text_no_scaling(ms_per_frame_text,
+                                       (int32)(LOGICAL_WIDTH * 0.01f),
+                                       (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                       debug_text_color);
+                y_offset += vertical_offset;
+            }
+
+            {  // Work Frame Time (MS)
+                real32 work_ms_per_frame = master_timer.frame_time_elapsed_before_render__seconds * 1000.0f;
+
+                SDL_Color work_ms_per_frame_text_color;
+
+                if (work_ms_per_frame < TARGET_TIME_PER_FRAME_MS)
+                {
+                    work_ms_per_frame_text_color = debug_text_color;
+                }
+                else
+                {
+                    work_ms_per_frame_text_color = {185, 80, 75};
+                }
+
+                if (global_debug_counter == 0)
+                {
+                    snprintf(work_ms_per_frame_text,
+                             sizeof(work_ms_per_frame_text),
+                             "Work ms: %.04f, (%.1f%%)",
+                             work_ms_per_frame,
+                             (work_ms_per_frame / ms_per_frame) * 100);
+                }
+
+                render_text_no_scaling(work_ms_per_frame_text,
+                                       (int32)(LOGICAL_WIDTH * 0.01f),
+                                       (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                       work_ms_per_frame_text_color);
+                y_offset += vertical_offset;
+            }
+
+            {  // Render Frame Time (MS)
+                real32 render_ms_per_frame = master_timer.render_time__seconds * 1000.0f;
+
+                if (global_debug_counter == 0)
+                {
+                    snprintf(render_ms_per_frame_text,
+                             sizeof(render_ms_per_frame_text),
+                             "Render ms: %.04f, (%.1f%%)",
+                             render_ms_per_frame,
+                             (render_ms_per_frame / ms_per_frame) * 100);
+                }
+
+                render_text_no_scaling(render_ms_per_frame_text,
+                                       (int32)(LOGICAL_WIDTH * 0.01f),
+                                       (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                       debug_text_color);
+                y_offset += vertical_offset;
+            }
+
+            // Re-enable logical size scaling for other elements
+            SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+        }
 
         if (global_debug_counter == 0)
         {
-            snprintf(fps_text, sizeof(fps_text), "FPS: %.02f", fps);
-        }
+            real32 fps = 1.0f / master_timer.total_frame_time_elapsed__seconds;
 
-        render_text_no_scaling(fps_text,
-                               (int32)(LOGICAL_WIDTH * 0.01f),
-                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                               debug_text_color);
-        y_offset += vertical_offset;
-
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-        real32 ms_per_frame = master_timer.total_frame_time_elapsed__seconds * 1000.0f;
-
-        if (global_debug_counter == 0)
-        {
-            snprintf(ms_per_frame_text,
-                     sizeof(ms_per_frame_text),
-                     "Ms/frame: %.04f (Target: %.04f)",
-                     ms_per_frame,
-                     TARGET_TIME_PER_FRAME_MS);
-        }
-
-        render_text_no_scaling(ms_per_frame_text,
-                               (int32)(LOGICAL_WIDTH * 0.01f),
-                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                               debug_text_color);
-        y_offset += vertical_offset;
-
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-        real32 work_ms_per_frame = master_timer.frame_time_elapsed_before_render__seconds * 1000.0f;
-
-        SDL_Color work_ms_per_frame_text_color;
-
-        if (work_ms_per_frame < TARGET_TIME_PER_FRAME_MS)
-        {
-            work_ms_per_frame_text_color = debug_text_color;
-        } else
-        {
-            work_ms_per_frame_text_color = { 185, 80, 75 };
-        }
-
-        if (global_debug_counter == 0)
-        {
-            snprintf(work_ms_per_frame_text,
-                     sizeof(work_ms_per_frame_text),
-                     "Work ms: %.04f, (%.1f%%)",
-                     work_ms_per_frame,
-                     (work_ms_per_frame / ms_per_frame) * 100);
-        }
-
-        render_text_no_scaling(work_ms_per_frame_text,
-                               (int32)(LOGICAL_WIDTH * 0.01f),
-                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                               work_ms_per_frame_text_color);
-        y_offset += vertical_offset;
-
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-        real32 render_ms_per_frame = master_timer.render_time__seconds * 1000.0f;
-
-        if (global_debug_counter == 0)
-        {
-            snprintf(render_ms_per_frame_text,
-                     sizeof(render_ms_per_frame_text),
-                     "Render ms: %.04f, (%.1f%%)",
-                     render_ms_per_frame,
-                     (render_ms_per_frame / ms_per_frame) * 100);
-        }
-
-        render_text_no_scaling(render_ms_per_frame_text,
-                               (int32)(LOGICAL_WIDTH * 0.01f),
-                               (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                               debug_text_color);
-        y_offset += vertical_offset;
-
-        //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        // Re-enable logical size scaling for other elements
-        SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
-
-        if (global_debug_counter == 0)
-        {
             char fps_str[30];  // Allocate enough space for the string
             sprintf(fps_str, "%.2f", fps);
 

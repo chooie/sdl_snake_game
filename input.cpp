@@ -53,8 +53,11 @@ void handle_input(SDL_Event* event, Input* input)
                     case SDLK_ESCAPE:
                     {
                         global_running = 0;
-                    }
-                    break;
+                    } break;
+                    case SDLK_BACKQUOTE:
+                    {
+                        global_display_debug_info = !global_display_debug_info;
+                    } break;
                     // case SDLK_s:
                     // {
                     //     SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
