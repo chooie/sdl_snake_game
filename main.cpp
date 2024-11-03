@@ -153,30 +153,6 @@ void update_timer(Master_Timer* t, bool32 vsync_enabled)
 #endif
 }
 
-SDL_Texture* global_square_texture;
-
-SDL_Texture* createSquareTexture(SDL_Renderer* renderer, int32 size)
-{
-    // Create an SDL texture to represent the square
-    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, size, size);
-
-    // Set the texture as the rendering target
-    SDL_SetRenderTarget(renderer, texture);
-
-    // Clear the texture (make it transparent)
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0); // Fully transparent
-    SDL_RenderClear(renderer);
-
-    SDL_SetRenderDrawColor(renderer, 247, 202, 136, 255);
-    SDL_Rect square = {0, 0, size, size}; // The square fills the texture
-    SDL_RenderFillRect(renderer, &square);
-
-    // Reset the render target back to the default window
-    SDL_SetRenderTarget(renderer, 0);
-
-    return texture;
-}
-
 #include "input.cpp"
 #include "game.cpp"
 #include "render.cpp"
@@ -261,8 +237,6 @@ int32 main(int32 argc, char* argv[])
         return -1;
     }
 
-    global_square_texture = createSquareTexture(global_renderer, window_width / 4);
-
     SDL_Event event;
     Input input = {};
 
@@ -284,8 +258,13 @@ int32 main(int32 argc, char* argv[])
     global_paused = 0;
     global_display_debug_info = 0;
 
-    State previous_state = {};
-    State current_state = {};
+    State starting_state = {};
+    starting_state.pos_y = -30;
+    starting_state.direction = DIRECTION_NORTH;
+    starting_state.velocity_y = velocity_power;
+
+    State previous_state = starting_state;
+    State current_state = starting_state;
     
     #ifdef __WIN32__
     // This looks like a function call but it's actually an intrinsic that
@@ -304,7 +283,7 @@ int32 main(int32 argc, char* argv[])
     char work_ms_per_frame_text[100] = "";
     char render_ms_per_frame_text[100] = "";
 
-    bool32 vsync_enabled = 1;
+    bool32 vsync_enabled = 0;
 #ifdef __APPLE__
     vsync_enabled = 1;
 #endif
@@ -348,8 +327,6 @@ int32 main(int32 argc, char* argv[])
                 );
                 master_timer.physics_simluation_elapsed_time__seconds += SIMULATION_DELTA_TIME_S;
                 accumulator_s -= SIMULATION_DELTA_TIME_S;
-
-                // printf("Timer: %.2f\n", simulation_time_elapsed_s);
             }
         }
 
@@ -358,16 +335,17 @@ int32 main(int32 argc, char* argv[])
         // NOTE: the render always lags by about a frame
         State state = current_state * alpha + previous_state * (1.0f - alpha);
 
-        render(&state, global_square_texture);
+        render(&state);
 
 #if 1
         SDL_Color text_color = {255, 255, 255};  // White color
-        render_centered_text_with_scaling("Help! I'm trapped in some empty hellscape.",
-                                          LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2,
-                                          LOGICAL_WIDTH * 0.9f,
+        render_centered_text_with_scaling("Snake Game",
+                                          LOGICAL_WIDTH / 2, 50,
+                                          LOGICAL_WIDTH * 0.25f,
                                           text_color);
 #endif
 
+        {  // Eat CPU time
 #if 0
         // Eat CPU time to test debug stuff
         auto start = std::chrono::high_resolution_clock::now();
@@ -383,7 +361,7 @@ int32 main(int32 argc, char* argv[])
         }
 #endif
 
-#if 1
+#if 0
         // Eat CPU time to test debug stuff
         uint64 target_cycles = (uint64)(0.01 * 1000.0f * 1000.0f * 1000.0f); // Adjust this to simulate the desired load
         uint64 start_cycles = __rdtsc();
@@ -402,9 +380,10 @@ int32 main(int32 argc, char* argv[])
             }
         }
 #endif
+        }
 
-        if (global_display_debug_info)
-        {  // Render Debug Info
+        if (global_display_debug_info) // Render Debug Info
+        {
 
             // Disable logical size scaling temporarily
             SDL_RenderSetLogicalSize(global_renderer, 0, 0);
@@ -558,8 +537,8 @@ int32 main(int32 argc, char* argv[])
             // Re-enable logical size scaling for other elements
             SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
         }
-
-        if (global_debug_counter == 0)
+       
+        if (global_debug_counter == 0) // FPS Timer in Window Name
         {
             real32 fps = 1.0f / master_timer.total_frame_time_elapsed__seconds;
 

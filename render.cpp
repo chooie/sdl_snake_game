@@ -79,7 +79,8 @@ map_world_space_position_to_screen_space_position(real32 world_x, real32 world_y
     real32 percent_x = world_x * RENDER_SCALE;
     real32 percent_y = world_y * RENDER_SCALE;
     real32 actual_x = percent_x * (LOGICAL_WIDTH / 2) + (LOGICAL_WIDTH / 2);
-    real32 actual_y = percent_y * (LOGICAL_WIDTH / 2) + (LOGICAL_HEIGHT / 2);
+    // Flip Y so positive y is up and negative y is down
+    real32 actual_y = LOGICAL_HEIGHT - (percent_y * (LOGICAL_WIDTH / 2) + (LOGICAL_HEIGHT / 2));
 
     result.x = actual_x;
     result.y = actual_y;
@@ -92,7 +93,7 @@ map_world_space_size_to_screen_space_size(real32 size)
     return size * RENDER_SCALE * LOGICAL_WIDTH;
 }
 
-void render(State* state, SDL_Texture* square_texture)
+void render(State* state)
 {
     SDL_Rect drawable_canvas;
     drawable_canvas.x = 0;
@@ -119,84 +120,4 @@ void render(State* state, SDL_Texture* square_texture)
 
     SDL_Color red = {171, 70, 66, 255};
     draw_rect(square, red);
-
-    Screen_Space_Position other_square_screen_pos =
-        map_world_space_position_to_screen_space_position(50.0f, 0);
-    real32 other_square_size = map_world_space_size_to_screen_space_size(10.0f);
-
-    SDL_Rect other_square = {};
-    other_square.x = (int32)(other_square_screen_pos.x - (other_square_size / 2));
-    other_square.y = (int32)(other_square_screen_pos.y - (other_square_size / 2));
-    other_square.w = (int32)other_square_size;
-    other_square.h = (int32)other_square_size;
-
-    SDL_Color magenta = {186, 139, 175, 255};
-    draw_rect(other_square, magenta);
-
-
-    Screen_Space_Position rotating_square_screen_pos =
-        map_world_space_position_to_screen_space_position(state->pos_x, state->pos_y);
-    real32 rotating_square_size = map_world_space_size_to_screen_space_size(10.0f);
-
-    SDL_Rect rotating_square = {};
-    rotating_square.x = (int32)(rotating_square_screen_pos.x - (rotating_square_size / 2));
-    rotating_square.y = (int32)(rotating_square_screen_pos.y - (rotating_square_size / 2));
-    rotating_square.w = (int32)rotating_square_size;
-    rotating_square.h = (int32)rotating_square_size;
-
-    // Center of the square for rotation
-    SDL_Point center = {(int32)(rotating_square_size / 2), (int32)(rotating_square_size / 2)};
-
-    // Render the rotating square using SDL_RenderCopyEx
-    SDL_RenderCopyEx(global_renderer,
-                     square_texture,
-                     nullptr,
-                     &rotating_square,
-                     state->angle,
-                     &center,
-                     SDL_FLIP_NONE);
-    /*
-
-    // Render the rotating square with the current angle
-    {
-        real32 normalized_x = state->pos_x * RENDER_SCALE;
-        real32 normalized_y = state->pos_y * RENDER_SCALE;
-
-        real32 actual_x = drawable_canvas.x +
-                          (drawable_canvas.w / 2) +
-                          (normalized_x * drawable_canvas.w / 2);
-        real32 actual_y = drawable_canvas.y +
-                          (drawable_canvas.h / 2) +
-                          // Account for width being wider than height
-                          (normalized_y * drawable_canvas.h / 2 * ABSOLUTE_ASPECT_RATIO);
-        real32 actual_square_size = 10 * RENDER_SCALE * drawable_canvas.w;
-
-        SDL_Rect dst_rect = {};
-        dst_rect.x = (int32)(actual_x - (actual_square_size / 2));
-        dst_rect.y = (int32)(actual_y - (actual_square_size / 2));
-        dst_rect.w = (int32)actual_square_size;
-        dst_rect.h = (int32)actual_square_size;
-
-        // Center of the square for rotation
-        SDL_Point center = {(int32)(actual_square_size / 2), (int32)(actual_square_size / 2)};
-
-        // Render the rotating square using SDL_RenderCopyEx
-        SDL_RenderCopyEx(global_renderer,
-                         square_texture,
-                         nullptr,
-                         &dst_rect,
-                         state->angle,
-                         &center,
-                         SDL_FLIP_NONE);
-    }
-    
-    // Example text rendering
-    SDL_Color white = {255, 255, 255, 255};
-    const char* message = "Hello, World!";
-    real32 text_world_x = 0;   // X position in world space
-    real32 text_world_y = 0;   // Y position in world space
-    real32 text_world_size = 50;  // World space size of text
-
-    render_text(state, drawable_canvas, message, global_font, text_world_x, text_world_y, text_world_size, white);
-    */
 }

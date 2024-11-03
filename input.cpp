@@ -90,9 +90,6 @@ void handle_input(SDL_Event* event, Input* input)
                             SDL_ShowCursor(SDL_DISABLE);
                             SDL_SetRelativeMouseMode(SDL_TRUE);
                         }
-
-                        // TODO: this is probably a memory leak. Need to destroy the texture every time we recreate it
-                        global_square_texture = createSquareTexture(global_renderer, window_width / 4);
                     }
                     break;
                 }

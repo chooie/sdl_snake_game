@@ -16,8 +16,12 @@ TODO
     / Render multiple debug texts in a column (millis/frame, fps, actual megacyles/frame, budgeted megacycles/frame,
       actual/budgeted - i.e. percent utilization)
     / Can toggle the debug text on and off
-? Make a game prototype
-    e.g. Snake
+? Make a Snake game prototype
+    ? Constantly move in whatever direction player is facing
+    ? Draw player grid
+        - If you crash into the screen edge, you die
+    ? Randomly spawn a blip
+    ? Blips can be eaten which then triggers the next one to spawn
 ? Play sound
 
 Nice-to-haves

@@ -1,66 +1,115 @@
 #include "common.h"
 
-real32 ACCELERATION_POWER = 1200;
-real32 friction = 20.0f;
+real32 velocity_power = 20.0f;
+
+typedef enum {
+    DIRECTION_NORTH,
+    DIRECTION_EAST,
+    DIRECTION_SOUTH,
+    DIRECTION_WEST
+} Direction;
 
 struct State {
     real32 pos_x;
     real32 pos_y;
 
+    Direction direction;
     real32 velocity_x;
     real32 velocity_y;
 
-    real32 angle;
-
     // Overload * operator for scalar multiplication
-    State operator*(real32 scalar) const {
-        return {pos_x * scalar, pos_y * scalar,
-                velocity_x * scalar, velocity_y * scalar,
-                /* TODO: how do I interpolate angles correctly? */
-                angle/* * scalar */};
+    State operator*(real32 scalar) const
+    {
+        State result;
+        result.pos_x = pos_x * scalar;
+        result.pos_y = pos_y * scalar;
+        result.direction = direction;
+        result.velocity_x = velocity_x * scalar;
+        result.velocity_y = velocity_y * scalar;
+        return result;
     }
 
     // Overload + operator for adding two States
-    State operator+(const State& other) const {
-        return {pos_x + other.pos_x, pos_y + other.pos_y,
-                velocity_x + other.velocity_x, velocity_y + other.velocity_y,
-                /* TODO: how do I interpolate angles correctly? */
-                angle/* + other.angle*/};
+    State operator+(const State& other) const
+    {
+        State result;
+        result.pos_x = pos_x + other.pos_x;
+        result.pos_y = pos_y + other.pos_y;
+        result.direction = direction;
+        result.velocity_x = velocity_x + other.velocity_x;
+        result.velocity_y = velocity_y + other.velocity_y;
+        return result;
     }
 };
 
-// Define your rotation speed (e.g., 90 degrees per second)
-const float rotation_speed = 90.0f;
-
 void simulate(State* state, Input* input, real64 simulation_time_elapsed, real32 dt_s)
 {
-    real32 acceleration_x = 0;
-    real32 acceleration_y = 0;
 
+    // TODO: should only be able to read one button at a time?
     if (is_down(BUTTON_W))
     {
-        acceleration_y += -ACCELERATION_POWER;
+        if (state->direction != DIRECTION_SOUTH)
+        {
+            state->direction = DIRECTION_NORTH;
+        }
         // printf("Holding down W...\n");
     }
 
     if (is_down(BUTTON_A))
     {
-        acceleration_x += -ACCELERATION_POWER;
+        if (state->direction != DIRECTION_EAST)
+        {
+            state->direction = DIRECTION_WEST;
+        }
         // printf("Holding down A...\n");
     }
 
     if (is_down(BUTTON_S))
     {
-        acceleration_y += ACCELERATION_POWER;
+        if (state->direction != DIRECTION_NORTH)
+        {
+            state->direction = DIRECTION_SOUTH;
+        }
         // printf("Holding down S...\n");
     }
 
     if (is_down(BUTTON_D))
     {
-        acceleration_x += ACCELERATION_POWER;
+        if (state->direction != DIRECTION_WEST)
+        {
+            state->direction = DIRECTION_EAST;
+        }
         // printf("Holding down D...\n");
     }
 
+    switch (state->direction)
+    {
+        case DIRECTION_NORTH:
+        {
+            state->velocity_x = 0;
+            state->velocity_y = velocity_power;
+        } break;
+        case DIRECTION_EAST:
+        {
+            state->velocity_x = velocity_power;
+            state->velocity_y = 0;
+        } break;
+        case DIRECTION_SOUTH:
+        {
+            state->velocity_x = 0;
+            state->velocity_y = -velocity_power;
+        } break;
+        case DIRECTION_WEST:
+        {
+            state->velocity_x = -velocity_power;
+            state->velocity_y = 0;
+        } break;
+    }
+
+    state->pos_x += state->velocity_x * dt_s;
+    state->pos_y += state->velocity_y * dt_s;
+
+/*
     // Slow the player down through friction
     acceleration_x -= state->velocity_x * friction;
     acceleration_y -= state->velocity_y * friction;
@@ -72,12 +121,7 @@ void simulate(State* state, Input* input, real64 simulation_time_elapsed, real32
     state->pos_x += state->velocity_x * dt_s + (0.5f * acceleration_x * dt_s * dt_s);
     state->pos_y += state->velocity_y * dt_s + (0.5f * acceleration_y * dt_s * dt_s);
 
-    state->angle += 90.0f * dt_s;  // Rotate 90 degrees per second
-    if (state->angle >= 360.0f)
-    {
-        // Keep angle constrained
-        state->angle -= 360.0f;
-    }
+*/
 
     // printf("x: %.2f, y: %.2f\n", state->pos_x, state->pos_y);
 }
