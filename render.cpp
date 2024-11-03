@@ -108,16 +108,66 @@ void render(State* state)
     SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
     SDL_RenderFillRect(global_renderer, &drawable_canvas);
 
-    Screen_Space_Position square_screen_pos =
-        map_world_space_position_to_screen_space_position(state->pos_x, state->pos_y);
-    real32 square_size = map_world_space_size_to_screen_space_size(10.0f);
+    {  // Draw Grid
 
-    SDL_Rect square = {};
-    square.x = (int32)(square_screen_pos.x - (square_size / 2));
-    square.y = (int32)(square_screen_pos.y - (square_size / 2));
-    square.w = (int32)square_size;
-    square.h = (int32)square_size;
+        /*
+        Here are a few integer grid sizes that would fit a 16:9 aspect ratio perfectly:
 
-    SDL_Color red = {171, 70, 66, 255};
-    draw_rect(square, red);
+        16x9 Grid - Each cell would be 80x80 pixels.
+        32x18 Grid - Each cell would be 40x40 pixels.
+        64x36 Grid - Each cell would be 20x20 pixels.
+        80x45 Grid - Each cell would be 16x16 pixels.
+        160x90 Grid - Each cell would be 8x8 pixels.
+        320x180 Grid - Each cell would be 4x4 pixels.
+        640x360 Grid - Each cell would be 2x2 pixels.
+        */
+
+        uint32 grid_block_size = 20;
+        uint32 border_thickness = 1;                       // Thickness of the white border
+        uint32 x_grids = LOGICAL_WIDTH / grid_block_size;  // Should exactly divide into logical width
+        uint32 y_grids = (int32)((x_grids / ABSOLUTE_ASPECT_RATIO));
+
+        SDL_Color grey_color = {40, 40, 40, 255};   // Dark grey color
+        SDL_Color white_color = {60, 60, 60, 255};  // Lighter color for borders
+
+        for (uint32 row_index = 0; row_index < y_grids; row_index++)
+        {
+            for (uint32 column_index = 0; column_index < x_grids; column_index++)
+            {
+                SDL_Rect grid_block = {};
+                grid_block.x = (int32)(column_index * grid_block_size);
+                grid_block.y = (int32)(row_index * grid_block_size);
+                grid_block.w = (int32)(grid_block_size);
+                grid_block.h = (int32)(grid_block_size);
+
+                // Draw the white border rectangle
+                draw_rect(grid_block, white_color);
+
+                // Shrink the grey rectangle by the border thickness to draw it inside the border
+                SDL_Rect inner_block;
+                inner_block.x = (int32)(grid_block.x + border_thickness);
+                inner_block.y = (int32)(grid_block.y + border_thickness);
+                inner_block.w = (int32)(grid_block.w - (2 * border_thickness));
+                inner_block.h = (int32)(grid_block.h - (2 * border_thickness));
+
+                // Draw the dark grey fill within the border
+                draw_rect(inner_block, grey_color);
+            }
+        }
+    }
+
+    { // Draw Player
+        Screen_Space_Position square_screen_pos =
+            map_world_space_position_to_screen_space_position(state->pos_x, state->pos_y);
+        real32 square_size = map_world_space_size_to_screen_space_size(10.0f);
+
+        SDL_Rect square = {};
+        square.x = (int32)(square_screen_pos.x - (square_size / 2));
+        square.y = (int32)(square_screen_pos.y - (square_size / 2));
+        square.w = (int32)square_size;
+        square.h = (int32)square_size;
+
+        SDL_Color red = {171, 70, 66, 255};
+        draw_rect(square, red);
+    }
 }

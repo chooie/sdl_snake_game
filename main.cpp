@@ -261,7 +261,6 @@ int32 main(int32 argc, char* argv[])
     State starting_state = {};
     starting_state.pos_y = -30;
     starting_state.direction = DIRECTION_NORTH;
-    starting_state.velocity_y = velocity_power;
 
     State previous_state = starting_state;
     State current_state = starting_state;
@@ -283,7 +282,7 @@ int32 main(int32 argc, char* argv[])
     char work_ms_per_frame_text[100] = "";
     char render_ms_per_frame_text[100] = "";
 
-    bool32 vsync_enabled = 0;
+    bool32 vsync_enabled = 1;
 #ifdef __APPLE__
     vsync_enabled = 1;
 #endif
