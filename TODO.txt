@@ -17,8 +17,8 @@ TODO
       actual/budgeted - i.e. percent utilization)
     / Can toggle the debug text on and off
 ? Make a Snake game prototype
-    ? Constantly move in whatever direction player is facing
-    ? Draw player grid
+    / Constantly move in whatever direction player is facing
+    / Draw player grid
         - If you crash into the screen edge, you die
     ? Randomly spawn a blip
     ? Blips can be eaten which then triggers the next one to spawn
@@ -32,6 +32,7 @@ Nice-to-haves
 Cleanup/Best-practice
 -------
 ? HOW DO I STOP RE-RENDERING TEXTURES EVERY FRAME
+    - THIS IS CAUSING MISSED FRAMES AND GENERALLY THROWING OFF THE TIMING
     - I can use a bitmap
     - I can just re-render textures for dynamic text and cache the static text textures
 ? Get rid of all the duplicate SDL2 includes

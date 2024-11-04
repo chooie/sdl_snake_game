@@ -13,7 +13,7 @@
 
 #include <chrono>
 
-bool32 VSYNC_ENABLED = 0;
+bool32 VSYNC_ENABLED = 1;
 
 struct Button_State
 {
@@ -324,7 +324,7 @@ int32 main(int32 argc, char* argv[])
 
             render(&state);
 
-#if 1
+#if 0
             SDL_Color text_color = {255, 255, 255};  // White color
             render_centered_text_with_scaling("Snake Game", LOGICAL_WIDTH / 2, 50, LOGICAL_WIDTH * 0.25f, text_color);
 #endif
