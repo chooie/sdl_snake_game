@@ -108,7 +108,8 @@ void render(State* state)
     SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
     SDL_RenderFillRect(global_renderer, &drawable_canvas);
 
-#if 0
+#if 1
+    // TODO: This is really slow
     {  // Draw Grid
 
         /*
@@ -126,7 +127,7 @@ void render(State* state)
         uint32 grid_block_size = 20;
         uint32 border_thickness = 1;                       // Thickness of the white border
         uint32 x_grids = LOGICAL_WIDTH / grid_block_size;  // Should exactly divide into logical width
-        uint32 y_grids = (int32)((x_grids / ABSOLUTE_ASPECT_RATIO));
+        uint32 y_grids = (int32)(x_grids / ABSOLUTE_ASPECT_RATIO);
 
         SDL_Color grey_color = {40, 40, 40, 255};   // Dark grey color
         SDL_Color white_color = {60, 60, 60, 255};  // Lighter color for borders

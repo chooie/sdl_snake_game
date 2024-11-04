@@ -13,6 +13,8 @@
 
 #include <chrono>
 
+bool32 VSYNC_ENABLED = 0;
+
 struct Button_State
 {
     bool32 is_down;
@@ -53,14 +55,11 @@ real32 SIMULATION_DELTA_TIME_S = 1.f / SIMULATION_FPS;
 
 real32 TARGET_SCREEN_FPS = 58.9f;
 real32 TARGET_TIME_PER_FRAME_S = 1.f / (real32)TARGET_SCREEN_FPS;
-real32 TARGET_TIME_PER_FRAME_MS = 1000.f / (real32)TARGET_SCREEN_FPS;
+real32 TARGET_TIME_PER_FRAME_MS = TARGET_TIME_PER_FRAME_S * 1000.0f;
 
 int32 global_running = 1;
 SDL_Window* global_window;
 SDL_Renderer* global_renderer;
-Uint64 GLOBAL_PERFORMANCE_FREQUENCY;
-
-Uint64 global_counter_last_frame;
 
 TTF_Font* global_font;
 TTF_Font* global_debug_font;
@@ -72,7 +71,6 @@ bool32 global_display_debug_info;
 bool32 global_paused;
 
 real32 global_debug_counter;
-Uint64 global_tick_counter_before;
 
 struct Master_Timer
 {
@@ -80,11 +78,12 @@ struct Master_Timer
     Uint64 last_frame_counter;
     Uint64 COUNTER_FREQUENCY;
 
-    real32 frame_time_elapsed_before_render__seconds;  // Useful to see how much time was really needed
-    real32 render_time__seconds;                       // See
-    real32 total_frame_time_elapsed__seconds;          // After the sleep or vsync block
-
-    real64 physics_simluation_elapsed_time__seconds;
+    real32 frame_time_elapsed_for_work__seconds;      // How much time was needed for simulation stuff
+    real32 frame_time_elapsed_for_render__seconds;    // How much time was needed for rendering?
+    real32 frame_time_elapsed_for_sleep__seconds;     // How much time was needed for rendering?
+    real32 total_frame_time_elapsed__seconds;         // How long did the whole dang frame take?
+    real64 physics_simulation_elapsed_time__seconds;  // This is the main counter for time. Everything will rely on what
+                                                      // the physics sees
 };
 
 #ifdef __WIN32__
@@ -94,9 +93,11 @@ uint64 global_cycles_elapsed_after_render;
 uint64 global_total_cycles_elapsed;
 #endif
 
+// clang-format off
 #include "input.cpp"
 #include "game.cpp"
 #include "render.cpp"
+// clang-format on
 
 int32 filterEvent(void* userdata, SDL_Event* event)
 {
@@ -185,16 +186,11 @@ int32 main(int32 argc, char* argv[])
 
     SDL_SetEventFilter(filterEvent, &input);
 
-    GLOBAL_PERFORMANCE_FREQUENCY = SDL_GetPerformanceFrequency();
-
     Master_Timer master_timer = {};
-    master_timer.COUNTER_FREQUENCY = GLOBAL_PERFORMANCE_FREQUENCY;
+    master_timer.COUNTER_FREQUENCY = SDL_GetPerformanceFrequency();
     master_timer.last_frame_counter = SDL_GetPerformanceCounter();
 
     global_debug_counter = 0;
-    global_tick_counter_before = SDL_GetPerformanceCounter();
-
-    global_counter_last_frame = SDL_GetPerformanceCounter();
 
     real32 accumulator_s = 0.0f;
 
@@ -224,13 +220,17 @@ int32 main(int32 argc, char* argv[])
     char ms_per_frame_text[100] = "";
     char work_ms_per_frame_text[100] = "";
     char render_ms_per_frame_text[100] = "";
+    char sleep_ms_per_frame_text[100] = "";
 
-    bool32 vsync_enabled = 1;
-
-    SDL_RenderSetVSync(global_renderer, vsync_enabled);
+    SDL_RenderSetVSync(global_renderer, VSYNC_ENABLED);
 
     while (global_running)
     {
+        real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.frame_time_elapsed_for_work__seconds;
+        real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.frame_time_elapsed_for_render__seconds;
+        real32 LAST_frame_time_elapsed_for_sleep__seconds = master_timer.frame_time_elapsed_for_sleep__seconds;
+        real32 total_LAST_frame_time_elapsed__seconds = master_timer.total_frame_time_elapsed__seconds;
+
 #ifdef __WIN32__
         uint64 global_cycle_count_now = __rdtsc();
         global_cycles_elapsed_before_render = global_cycle_count_now - global_last_cycle_count;
@@ -238,53 +238,84 @@ int32 main(int32 argc, char* argv[])
 
         Uint64 counter_now = SDL_GetPerformanceCounter();
 
-        master_timer.frame_time_elapsed_before_render__seconds =
-            ((real32)(counter_now - master_timer.last_frame_counter) / (real32)master_timer.COUNTER_FREQUENCY);
-
         handle_input(&event, &input);
 
-        if (global_paused)
-        {
-            global_counter_last_frame = SDL_GetPerformanceCounter();
-        }
+        State state;
 
-        if (!global_paused)
-        {
-            // https://gafferongames.com/post/fix_your_timestep/
-            real32 frame_time_s = master_timer.total_frame_time_elapsed__seconds;
-
-            if (frame_time_s > 0.25f)
+        {  // Simulation work
+            if (!global_paused)
             {
-                // Prevent "spiraling" (excessive frame accumulation) in case of a big lag spike.
-                frame_time_s = 0.25f;
+                // https://gafferongames.com/post/fix_your_timestep/
+                real32 frame_time_s = master_timer.total_frame_time_elapsed__seconds;
+
+                if (frame_time_s > 0.25f)
+                {
+                    // Prevent "spiraling" (excessive frame accumulation) in case of a big lag spike.
+                    frame_time_s = 0.25f;
+                }
+
+                accumulator_s += frame_time_s;
+
+                while (accumulator_s >= SIMULATION_DELTA_TIME_S)
+                {  // Simulation 'consumes' whatever time is given to it based on the render rate
+                    previous_state = current_state;
+                    simulate(&current_state,
+                             &input,
+                             master_timer.physics_simulation_elapsed_time__seconds,
+                             SIMULATION_DELTA_TIME_S);
+                    master_timer.physics_simulation_elapsed_time__seconds += SIMULATION_DELTA_TIME_S;
+                    accumulator_s -= SIMULATION_DELTA_TIME_S;
+                }
             }
 
-            accumulator_s += frame_time_s;
+            real32 alpha = accumulator_s / SIMULATION_DELTA_TIME_S;
+            // Interpolate between the current state and previous state
+            // NOTE: the render always lags by about a frame
+            state = current_state * alpha + previous_state * (1.0f - alpha);
 
-            while (accumulator_s >= SIMULATION_DELTA_TIME_S)
-            {  // Simulation 'consumes' whatever time is given to it based on the render rate
-                previous_state = current_state;
-                simulate(&current_state,
-                         &input,
-                         master_timer.physics_simluation_elapsed_time__seconds,
-                         SIMULATION_DELTA_TIME_S);
-                master_timer.physics_simluation_elapsed_time__seconds += SIMULATION_DELTA_TIME_S;
-                accumulator_s -= SIMULATION_DELTA_TIME_S;
+            {  // Eat CPU time
+#if 0
+#if 0
+                // Eat CPU time to test debug stuff
+                auto start = std::chrono::high_resolution_clock::now();
+    
+                // Run a loop that consumes CPU cycles for 10 seconds
+                while (true) {
+                    auto now = std::chrono::high_resolution_clock::now();
+                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+            
+                    if (duration.count() >= 4.0f) {
+                        break;
+                    }
+                }
+#endif
+
+#if 0
+                // Eat CPU time to test debug stuff
+                uint64 target_cycles = (uint64)(0.01 * 1000.0f * 1000.0f * 1000.0f); // Adjust this to simulate the desired load
+                uint64 start_cycles = __rdtsc();
+
+                while (true) {
+                    // Perform some dummy operations to keep the CPU busy
+                    volatile uint32 dummy = 0;
+                    for (uint32 i = 0; i < 1000; ++i) {
+                        dummy += i;
+                    }
+
+                    // Check the current cycle count
+                    uint64 current_cycles = __rdtsc();
+                    if ((current_cycles - start_cycles) >= target_cycles) {
+                        break;
+                    }
+                }
+#endif
+#endif
             }
         }
 
-        real32 alpha = accumulator_s / SIMULATION_DELTA_TIME_S;
-        // Interpolate between the current state and previous state
-        // NOTE: the render always lags by about a frame
-        State state = current_state * alpha + previous_state * (1.0f - alpha);
-
-        // TODO: WORK
-        global_debug_counter += master_timer.total_frame_time_elapsed__seconds;
-        // Tick every second
-        if (global_debug_counter >= 0.2)
-        {
-            global_debug_counter = 0;
-        }
+        Uint64 counter_after_work = SDL_GetPerformanceCounter();
+        master_timer.frame_time_elapsed_for_work__seconds =
+            ((real32)(counter_after_work - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
 
         {  // Render
             // Clear the screen
@@ -293,55 +324,22 @@ int32 main(int32 argc, char* argv[])
 
             render(&state);
 
-#if 0
-        SDL_Color text_color = {255, 255, 255};  // White color
-        render_centered_text_with_scaling("Snake Game",
-                                          LOGICAL_WIDTH / 2, 50,
-                                          LOGICAL_WIDTH * 0.25f,
-                                          text_color);
-#endif
-
-#if 0
-        {  // Eat CPU time
-#if 0
-        // Eat CPU time to test debug stuff
-        auto start = std::chrono::high_resolution_clock::now();
-    
-        // Run a loop that consumes CPU cycles for 10 seconds
-        while (true) {
-            auto now = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
-            
-            if (duration.count() >= 4.0f) {
-                break;
-            }
-        }
-#endif
-
-#if 0
-        // Eat CPU time to test debug stuff
-        uint64 target_cycles = (uint64)(0.01 * 1000.0f * 1000.0f * 1000.0f); // Adjust this to simulate the desired load
-        uint64 start_cycles = __rdtsc();
-
-        while (true) {
-            // Perform some dummy operations to keep the CPU busy
-            volatile uint32 dummy = 0;
-            for (uint32 i = 0; i < 1000; ++i) {
-                dummy += i;
-            }
-
-            // Check the current cycle count
-            uint64 current_cycles = __rdtsc();
-            if ((current_cycles - start_cycles) >= target_cycles) {
-                break;
-            }
-        }
-#endif
-        }
+#if 1
+            SDL_Color text_color = {255, 255, 255};  // White color
+            render_centered_text_with_scaling("Snake Game", LOGICAL_WIDTH / 2, 50, LOGICAL_WIDTH * 0.25f, text_color);
 #endif
 
             if (global_display_debug_info)  // Render Debug Info
             {
+                {  // Tick debug text counter
+                    global_debug_counter += master_timer.total_frame_time_elapsed__seconds;
+                    // Tick every second
+                    if (global_debug_counter >= 0.2)
+                    {
+                        global_debug_counter = 0;
+                    }
+                }
+
                 // Disable logical size scaling temporarily
                 SDL_RenderSetLogicalSize(global_renderer, 0, 0);
 
@@ -408,7 +406,7 @@ int32 main(int32 argc, char* argv[])
 #endif
 
                 {  // FPS
-                    real32 fps = 1.0f / master_timer.total_frame_time_elapsed__seconds;
+                    real32 fps = 1.0f / total_LAST_frame_time_elapsed__seconds;
 
                     if (global_debug_counter == 0)
                     {
@@ -422,10 +420,9 @@ int32 main(int32 argc, char* argv[])
                     y_offset += vertical_offset;
                 }
 
-                real32 ms_per_frame = master_timer.total_frame_time_elapsed__seconds * 1000.0f;
+                real32 ms_per_frame = total_LAST_frame_time_elapsed__seconds * 1000.0f;
 
                 {  // Total Frame Time (MS)
-
                     if (global_debug_counter == 0)
                     {
                         snprintf(ms_per_frame_text,
@@ -443,21 +440,7 @@ int32 main(int32 argc, char* argv[])
                 }
 
                 {  // Work Frame Time (MS)
-                    real32 work_ms_per_frame = master_timer.frame_time_elapsed_before_render__seconds * 1000.0f;
-
-                    SDL_Color work_ms_per_frame_text_color;
-
-                    if (work_ms_per_frame < TARGET_TIME_PER_FRAME_MS)
-                    {
-                        work_ms_per_frame_text_color = debug_text_color;
-                    }
-                    else
-                    {
-                        work_ms_per_frame_text_color.r = 185;
-                        work_ms_per_frame_text_color.g = 80;
-                        work_ms_per_frame_text_color.b = 75;
-                        work_ms_per_frame_text_color.a = 255;  // Set alpha to fully opaque (or other value as needed)
-                    }
+                    real32 work_ms_per_frame = LAST_frame_time_elapsed_for_work__seconds * 1000.0f;
 
                     if (global_debug_counter == 0)
                     {
@@ -471,12 +454,12 @@ int32 main(int32 argc, char* argv[])
                     render_text_no_scaling(work_ms_per_frame_text,
                                            (int32)(LOGICAL_WIDTH * 0.01f),
                                            (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                           work_ms_per_frame_text_color);
+                                           debug_text_color);
                     y_offset += vertical_offset;
                 }
 
                 {  // Render Frame Time (MS)
-                    real32 render_ms_per_frame = master_timer.render_time__seconds * 1000.0f;
+                    real32 render_ms_per_frame = LAST_frame_time_elapsed_for_render__seconds * 1000.0f;
 
                     if (global_debug_counter == 0)
                     {
@@ -488,6 +471,25 @@ int32 main(int32 argc, char* argv[])
                     }
 
                     render_text_no_scaling(render_ms_per_frame_text,
+                                           (int32)(LOGICAL_WIDTH * 0.01f),
+                                           (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                           debug_text_color);
+                    y_offset += vertical_offset;
+                }
+
+                {  // Sleep Frame Time (MS)
+                    real32 sleep_ms_per_frame = LAST_frame_time_elapsed_for_sleep__seconds * 1000.0f;
+
+                    if (global_debug_counter == 0)
+                    {
+                        snprintf(sleep_ms_per_frame_text,
+                                 sizeof(sleep_ms_per_frame_text),
+                                 "Sleep ms: %.04f, (%.1f%%)",
+                                 sleep_ms_per_frame,
+                                 (sleep_ms_per_frame / ms_per_frame) * 100);
+                    }
+
+                    render_text_no_scaling(sleep_ms_per_frame_text,
                                            (int32)(LOGICAL_WIDTH * 0.01f),
                                            (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
                                            debug_text_color);
@@ -535,24 +537,26 @@ int32 main(int32 argc, char* argv[])
 #endif
 
         Uint64 counter_after_render = SDL_GetPerformanceCounter();
-        master_timer.render_time__seconds =
+        master_timer.frame_time_elapsed_for_render__seconds =
             ((real32)(counter_after_render - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
 
-        if (!vsync_enabled)
-        {
-            real32 sleep_time_s = TARGET_TIME_PER_FRAME_S - master_timer.frame_time_elapsed_before_render__seconds;
-
-            if (sleep_time_s > 0)
+        {  // Sleep if necessary
+            if (!VSYNC_ENABLED)
             {
-                real32 sleep_time_ms = sleep_time_s * 1000.0f;
-                // printf("Sleep ms: %.2f\n", sleep_time_ms);
+                real32 sleep_time_s = TARGET_TIME_PER_FRAME_S - master_timer.frame_time_elapsed_for_render__seconds;
 
-                // Round sleep time up
-                SDL_Delay((uint32)(sleep_time_ms + 0.5f));
-            }
-            else
-            {
-                // TODO: logging when we miss a frame?
+                if (sleep_time_s > 0)
+                {
+                    real32 sleep_time_ms = sleep_time_s * 1000.0f;
+                    // printf("Sleep ms: %.2f\n", sleep_time_ms);
+
+                    // Round sleep time up
+                    SDL_Delay((uint32)(sleep_time_ms + 0.5f));
+                }
+                else
+                {
+                    // TODO: logging when we miss a frame?
+                }
             }
         }
 
@@ -562,9 +566,10 @@ int32 main(int32 argc, char* argv[])
 #endif
 
         Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
+        master_timer.frame_time_elapsed_for_sleep__seconds =
+            ((real32)(counter_after_sleep - counter_after_render) / (real32)master_timer.COUNTER_FREQUENCY);
         master_timer.total_frame_time_elapsed__seconds =
-            ((real32)(counter_after_sleep - master_timer.last_frame_counter) /
-             (real32)master_timer.COUNTER_FREQUENCY);
+            ((real32)(counter_after_sleep - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
 
         // Next iteration
         master_timer.last_frame_counter = counter_after_sleep;
