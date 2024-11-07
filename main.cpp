@@ -273,6 +273,15 @@ int32 main(int32 argc, char* argv[])
             // NOTE: the render always lags by about a frame
             state = current_state * alpha + previous_state * (1.0f - alpha);
 
+            {  // Tick debug text counter
+                global_debug_counter += master_timer.total_frame_time_elapsed__seconds;
+                // Tick every second
+                if (global_debug_counter >= 1.0f)
+                {
+                    global_debug_counter = 0;
+                }
+            }
+
             {  // Eat CPU time
 #if 0
 #if 0
@@ -331,15 +340,6 @@ int32 main(int32 argc, char* argv[])
 
             if (global_display_debug_info)  // Render Debug Info
             {
-                {  // Tick debug text counter
-                    global_debug_counter += master_timer.total_frame_time_elapsed__seconds;
-                    // Tick every second
-                    if (global_debug_counter >= 0.2)
-                    {
-                        global_debug_counter = 0;
-                    }
-                }
-
                 // Disable logical size scaling temporarily
                 SDL_RenderSetLogicalSize(global_renderer, 0, 0);
 

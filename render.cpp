@@ -108,6 +108,8 @@ void render(State* state)
     SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
     SDL_RenderFillRect(global_renderer, &drawable_canvas);
 
+    uint32 grid_block_size = 20;
+
 #if 1
     // TODO: This is really slow
     {  // Draw Grid
@@ -124,7 +126,6 @@ void render(State* state)
         640x360 Grid - Each cell would be 2x2 pixels.
         */
 
-        uint32 grid_block_size = 20;
         uint32 border_thickness = 1;                       // Thickness of the white border
         uint32 x_grids = LOGICAL_WIDTH / grid_block_size;  // Should exactly divide into logical width
         uint32 y_grids = (int32)(x_grids / ABSOLUTE_ASPECT_RATIO);
@@ -162,13 +163,12 @@ void render(State* state)
     { // Draw Player
         Screen_Space_Position square_screen_pos =
             map_world_space_position_to_screen_space_position(state->pos_x, state->pos_y);
-        real32 square_size = map_world_space_size_to_screen_space_size(10.0f);
 
         SDL_Rect square = {};
-        square.x = (int32)(square_screen_pos.x - (square_size / 2));
-        square.y = (int32)(square_screen_pos.y - (square_size / 2));
-        square.w = (int32)square_size;
-        square.h = (int32)square_size;
+        square.x = (int32)(square_screen_pos.x - (grid_block_size / 2));
+        square.y = (int32)(square_screen_pos.y - (grid_block_size / 2));
+        square.w = (int32)grid_block_size;
+        square.h = (int32)grid_block_size;
 
         SDL_Color red = {171, 70, 66, 255};
         draw_rect(square, red);
