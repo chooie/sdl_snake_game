@@ -46,6 +46,20 @@ struct Input
 int32 LOGICAL_WIDTH = 1280;
 int32 LOGICAL_HEIGHT = 720;
 real32 ABSOLUTE_ASPECT_RATIO = (real32)LOGICAL_WIDTH / (real32)LOGICAL_HEIGHT;
+/*
+Here are a few integer grid sizes that would fit a 16:9 aspect ratio perfectly:
+
+16x9 Grid - Each cell would be 80x80 pixels.
+32x18 Grid - Each cell would be 40x40 pixels.
+64x36 Grid - Each cell would be 20x20 pixels.
+80x45 Grid - Each cell would be 16x16 pixels.
+160x90 Grid - Each cell would be 8x8 pixels.
+320x180 Grid - Each cell would be 4x4 pixels.
+640x360 Grid - Each cell would be 2x2 pixels.
+*/
+uint32 GRID_BLOCK_SIZE = 20;
+uint32 X_GRIDS = LOGICAL_WIDTH / GRID_BLOCK_SIZE;  // Should exactly divide into logical width
+uint32 Y_GRIDS = (int32)(X_GRIDS / ABSOLUTE_ASPECT_RATIO);
 
 int32 window_width = LOGICAL_WIDTH;
 int32 window_height = LOGICAL_HEIGHT;
@@ -198,8 +212,11 @@ int32 main(int32 argc, char* argv[])
     global_display_debug_info = 0;
 
     State starting_state = {};
-    starting_state.pos_y = -30;
+    starting_state.pos_x = X_GRIDS / 2;
+    starting_state.pos_y = Y_GRIDS / 2;
     starting_state.direction = DIRECTION_NORTH;
+    starting_state.set_time_until_grid_jump__seconds = 0.2f;
+    starting_state.time_until_grid_jump__seconds = starting_state.set_time_until_grid_jump__seconds;
 
     State previous_state = starting_state;
     State current_state = starting_state;
@@ -271,7 +288,10 @@ int32 main(int32 argc, char* argv[])
             real32 alpha = accumulator_s / SIMULATION_DELTA_TIME_S;
             // Interpolate between the current state and previous state
             // NOTE: the render always lags by about a frame
-            state = current_state * alpha + previous_state * (1.0f - alpha);
+
+            // NOTE: I've commented this out because I don't think we need linear interpolation for new grid-based approach?
+            // state = current_state * alpha + previous_state * (1.0f - alpha);
+            state = current_state;
 
             {  // Tick debug text counter
                 global_debug_counter += master_timer.total_frame_time_elapsed__seconds;
