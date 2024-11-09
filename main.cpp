@@ -21,28 +21,6 @@ struct Button_State
     bool32 changed;
 };
 
-enum
-{
-    BUTTON_W,
-    BUTTON_A,
-    BUTTON_S,
-    BUTTON_D,
-    BUTTON_UP,
-    BUTTON_DOWN,
-    BUTTON_LEFT,
-    BUTTON_RIGHT,
-    BUTTON_ENTER,
-
-    BUTTON_SPACE,
-
-    BUTTON_COUNT,  // Should be the last item
-};
-
-struct Input
-{
-    Button_State buttons[BUTTON_COUNT];
-};
-
 int32 LOGICAL_WIDTH = 1280;
 int32 LOGICAL_HEIGHT = 720;
 real32 ABSOLUTE_ASPECT_RATIO = (real32)LOGICAL_WIDTH / (real32)LOGICAL_HEIGHT;
@@ -181,14 +159,24 @@ int32 main(int32 argc, char* argv[])
     SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, "1");
 #endif
 
-    global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256);
+    real32 dpi;
+    if (SDL_GetDisplayDPI(0, &dpi, NULL, NULL) == 0) {
+        // Successfully retrieved DPI
+    } else {
+        // Handle error
+    }
+
+    real32 base_DPI = 72.0f;
+    real32 scale_factor = dpi / base_DPI;
+
+    global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256 * scale_factor);
     if (global_font == nullptr)
     {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
         return -1;
     }
 
-    global_debug_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 16);
+    global_debug_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 16 * scale_factor);
     if (global_debug_font == nullptr)
     {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
@@ -214,8 +202,8 @@ int32 main(int32 argc, char* argv[])
     State starting_state = {};
     starting_state.pos_x = X_GRIDS / 2;
     starting_state.pos_y = Y_GRIDS / 2;
-    starting_state.direction = DIRECTION_NORTH;
-    starting_state.set_time_until_grid_jump__seconds = 0.2f;
+    starting_state.current_direction = DIRECTION_NORTH;
+    starting_state.set_time_until_grid_jump__seconds = .25f;
     starting_state.time_until_grid_jump__seconds = starting_state.set_time_until_grid_jump__seconds;
 
     State previous_state = starting_state;
