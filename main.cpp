@@ -203,7 +203,7 @@ int32 main(int32 argc, char* argv[])
     starting_state.pos_x = X_GRIDS / 2;
     starting_state.pos_y = Y_GRIDS / 2;
     starting_state.current_direction = DIRECTION_NORTH;
-    starting_state.set_time_until_grid_jump__seconds = .25f;
+    starting_state.set_time_until_grid_jump__seconds = .1f;
     starting_state.time_until_grid_jump__seconds = starting_state.set_time_until_grid_jump__seconds;
 
     State previous_state = starting_state;
@@ -245,6 +245,26 @@ int32 main(int32 argc, char* argv[])
 
         handle_input(&event, &input);
 
+        if (pressed_local(BUTTON_W))
+        {
+            add_input(DIRECTION_NORTH);
+        }
+
+        if (pressed_local(BUTTON_A))
+        {
+            add_input(DIRECTION_WEST);
+        }
+
+        if (pressed_local(BUTTON_S))
+        {
+            add_input(DIRECTION_SOUTH);
+        }
+
+        if (pressed_local(BUTTON_D))
+        {
+            add_input(DIRECTION_EAST);
+        }
+
         State state;
 
         {  // Simulation work
@@ -265,7 +285,6 @@ int32 main(int32 argc, char* argv[])
                 {  // Simulation 'consumes' whatever time is given to it based on the render rate
                     previous_state = current_state;
                     simulate(&current_state,
-                             &input,
                              master_timer.physics_simulation_elapsed_time__seconds,
                              SIMULATION_DELTA_TIME_S);
                     master_timer.physics_simulation_elapsed_time__seconds += SIMULATION_DELTA_TIME_S;

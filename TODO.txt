@@ -21,7 +21,8 @@ TODO
     / Draw player grid
         - If you crash into the screen edge, you die
     / Player is one grid block
-    ? Player moves one square at a time
+    / Player moves one square at a time
+    / Queue multiple user inputs so we don't drop any
     ? Randomly spawn a blip
     ? Blips can be eaten which then triggers the next one to spawn
 ? Play sound

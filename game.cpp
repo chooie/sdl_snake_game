@@ -1,6 +1,7 @@
 #include "common.h"
 
 typedef enum {
+    DIRECTION_NONE,  // Represents no movement
     DIRECTION_NORTH,
     DIRECTION_EAST,
     DIRECTION_SOUTH,
@@ -43,38 +44,44 @@ struct State {
     }
 };
 
-void simulate(State* state, Input* input, real64 simulation_time_elapsed, real32 dt_s)
+// TODO move this somewhere
+#define MAX_INPUTS 10
+Direction input_queue[MAX_INPUTS];
+int32 head = 0; // Points to the current input to be processed
+int32 tail = 0; // Points to the next free spot for adding input
+
+void add_input(Direction dir)
+{
+    int32 next_tail = (tail + 1) % MAX_INPUTS;
+    if (next_tail != head) // Only add if there's space in the queue
+    {
+        input_queue[tail] = dir;
+        tail = next_tail;
+    }
+}
+
+Direction get_next_input()
+{
+    if (head == tail)
+    {
+        // No inputs available, return current direction
+        return DIRECTION_NONE;
+    }
+    Direction dir = input_queue[head];
+    head = (head + 1) % MAX_INPUTS;
+    return dir;
+}
+
+void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
 {
     state->time_until_grid_jump__seconds -= dt_s;
 
-    // TODO: these controls don't feel good
-    // Maybe we need to push the inputs to a queue and then process them each tick so we don't miss any?
-
-    if (is_down(BUTTON_W))
-    {
-        state->proposed_direction = DIRECTION_NORTH;
-    }
-    
-    if (is_down(BUTTON_A))
-    {
-        state->proposed_direction = DIRECTION_WEST;
-    }
-
-    if (is_down(BUTTON_S))
-    {
-        state->proposed_direction = DIRECTION_SOUTH;
-    }
-
-    if (is_down(BUTTON_D))
-    {
-        state->proposed_direction = DIRECTION_EAST;
-    }
-    
     if (state->time_until_grid_jump__seconds <= 0)
     {
-        if (!state->direction_locked) {
+        Direction proposed_direction = get_next_input();
 
-            switch (state->proposed_direction)
+        if (!state->direction_locked) {
+            switch (proposed_direction)
             {
                 case DIRECTION_NORTH:
                 {
