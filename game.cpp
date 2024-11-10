@@ -20,6 +20,9 @@ struct State {
     real32 time_until_grid_jump__seconds;
     real32 set_time_until_grid_jump__seconds;
 
+    int32 blip_pos_x;
+    int32 blip_pos_y;
+
     // Overload * operator for scalar multiplication
     State operator*(real32 scalar) const
     {

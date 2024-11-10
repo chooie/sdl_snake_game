@@ -201,10 +201,13 @@ int32 main(int32 argc, char* argv[])
 
     State starting_state = {};
     starting_state.pos_x = X_GRIDS / 2;
-    starting_state.pos_y = Y_GRIDS / 2;
+    starting_state.pos_y = Y_GRIDS / 4;
     starting_state.current_direction = DIRECTION_NORTH;
     starting_state.set_time_until_grid_jump__seconds = .1f;
     starting_state.time_until_grid_jump__seconds = starting_state.set_time_until_grid_jump__seconds;
+
+    starting_state.blip_pos_x = X_GRIDS / 4;
+    starting_state.blip_pos_y = 3 * Y_GRIDS / 4;
 
     State previous_state = starting_state;
     State current_state = starting_state;

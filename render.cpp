@@ -131,6 +131,22 @@ void render(State* state)
     }
 #endif
 
+    { // Draw Blip
+        Screen_Space_Position square_screen_pos =
+            map_world_space_position_to_screen_space_position(state->blip_pos_x, state->blip_pos_y);
+
+        real32 size = GRID_BLOCK_SIZE * 0.5f;
+
+        SDL_Rect square = {};
+        square.x = (int32)(square_screen_pos.x + ((real32)GRID_BLOCK_SIZE / 2) - (size / 2));
+        square.y = (int32)(square_screen_pos.y + ((real32)GRID_BLOCK_SIZE / 2) - (size / 2));
+        square.w = (int32)size;
+        square.h = (int32)size;
+
+        SDL_Color color = {52, 152, 219, 255};
+        draw_rect(square, color);
+    }
+
     { // Draw Player
         Screen_Space_Position square_screen_pos =
             map_world_space_position_to_screen_space_position(state->pos_x, state->pos_y);
