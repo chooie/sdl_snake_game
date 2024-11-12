@@ -23,9 +23,17 @@ TODO
     / Player is one grid block
     / Player moves one square at a time
     / Queue multiple user inputs so we don't drop any
-    ? Randomly spawn a blip
-    ? Blips can be eaten which then triggers the next one to spawn
+    / Draw a blip
+    / The snake can grow another square behind it
+    / The snake grows another square behind it when it hits the blip
+    / Blips can be eaten which then triggers the next one to spawn randomly
+    ? Track length as score
+    ? Colliding with wall or self restarts the game
+    ? Add 'grace period' when colliding with wall or self
+        - The user should have a chance of like 1 second or so where they can turn to save themselves
+    ? Start speeding up as more blips are eaten
 ? Play sound
+? Game menu
 
 Nice-to-haves
 --------------

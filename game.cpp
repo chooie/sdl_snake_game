@@ -1,6 +1,23 @@
 #include "common.h"
 
-typedef enum {
+// Define parameters for the LCG
+uint32 seed = 12345; // Initial seed value
+#define LCG_A 1664525u
+#define LCG_C 1013904223u
+
+// Function to generate a pseudorandom number using LCG
+uint32 custom_rand() {
+    seed = LCG_A * seed + LCG_C;
+    return seed;
+}
+
+// Function to generate a number between 0 and max - 1 (inclusive)
+uint32 custom_rand_range(uint32 max) {
+    return custom_rand() % (max);
+}
+
+typedef enum
+{
     DIRECTION_NONE,  // Represents no movement
     DIRECTION_NORTH,
     DIRECTION_EAST,
@@ -8,9 +25,22 @@ typedef enum {
     DIRECTION_WEST
 } Direction;
 
-struct State {
+struct Snake_Part
+{
     int32 pos_x;
     int32 pos_y;
+    Direction direction;
+};
+
+#define MAX_TAIL_LENGTH 100
+
+struct State
+{
+    int32 pos_x;
+    int32 pos_y;
+
+    Snake_Part snake_parts[MAX_TAIL_LENGTH];
+    uint32 next_snake_part_index;
 
     Direction current_direction;
     Direction proposed_direction;
@@ -50,13 +80,13 @@ struct State {
 // TODO move this somewhere
 #define MAX_INPUTS 10
 Direction input_queue[MAX_INPUTS];
-int32 head = 0; // Points to the current input to be processed
-int32 tail = 0; // Points to the next free spot for adding input
+int32 head = 0;  // Points to the current input to be processed
+int32 tail = 0;  // Points to the next free spot for adding input
 
 void add_input(Direction dir)
 {
     int32 next_tail = (tail + 1) % MAX_INPUTS;
-    if (next_tail != head) // Only add if there's space in the queue
+    if (next_tail != head)  // Only add if there's space in the queue
     {
         input_queue[tail] = dir;
         tail = next_tail;
@@ -83,35 +113,82 @@ void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
     {
         Direction proposed_direction = get_next_input();
 
-        if (!state->direction_locked) {
+        if (!state->direction_locked)
+        {
             switch (proposed_direction)
             {
                 case DIRECTION_NORTH:
                 {
-                    if (state->current_direction != DIRECTION_SOUTH) {
+                    if (state->current_direction != DIRECTION_SOUTH)
+                    {
                         state->current_direction = DIRECTION_NORTH;
                     }
-                } break;
+                }
+                break;
                 case DIRECTION_EAST:
                 {
-                    if (state->current_direction != DIRECTION_WEST) {
+                    if (state->current_direction != DIRECTION_WEST)
+                    {
                         state->current_direction = DIRECTION_EAST;
                     }
-                } break;
+                }
+                break;
                 case DIRECTION_SOUTH:
                 {
-                    if (state->current_direction != DIRECTION_NORTH) {
+                    if (state->current_direction != DIRECTION_NORTH)
+                    {
                         state->current_direction = DIRECTION_SOUTH;
                     }
-                } break;
+                }
+                break;
                 case DIRECTION_WEST:
                 {
-                    if (state->current_direction != DIRECTION_EAST) {
+                    if (state->current_direction != DIRECTION_EAST)
+                    {
                         state->current_direction = DIRECTION_WEST;
                     }
-                } break;
+                }
+                break;
 
-                state->direction_locked = 1;
+                    state->direction_locked = 1;
+            }
+        }
+
+        if (state->pos_x == state->blip_pos_x && state->pos_y == state->blip_pos_y) // Collision with blip
+        {
+            { // Grow snake part
+                Snake_Part new_snake_part = {};
+                Snake_Part* last_snake_part = &state->snake_parts[state->next_snake_part_index];
+                new_snake_part.pos_x = last_snake_part->pos_x;
+                new_snake_part.pos_y = last_snake_part->pos_y;
+                new_snake_part.direction = last_snake_part->direction;
+                state->next_snake_part_index++;
+            }
+
+            { // Randomly spawn blip somewhere else
+                uint32 random_x = custom_rand_range(X_GRIDS);
+                state->blip_pos_x = random_x;
+
+                uint32 random_y = custom_rand_range(Y_GRIDS);
+                state->blip_pos_y = random_y;
+            }
+        }
+
+
+        for (int32 i = state->next_snake_part_index - 1; i >= 0; i--)
+        {
+            Snake_Part* current_snake_part = &state->snake_parts[i];
+
+            if (i == 0)
+            {
+                current_snake_part->pos_x = state->pos_x;
+                current_snake_part->pos_y = state->pos_y;
+                current_snake_part->direction = state->current_direction;
+            } else {
+                Snake_Part* previous_snake_part = &state->snake_parts[i - 1];
+                current_snake_part->pos_x = previous_snake_part->pos_x;
+                current_snake_part->pos_y = previous_snake_part->pos_y;
+                current_snake_part->direction = previous_snake_part->direction;
             }
         }
 
@@ -119,33 +196,41 @@ void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
         {
             case DIRECTION_NORTH:
             {
-                if (state->current_direction != DIRECTION_SOUTH) {
+                if (state->current_direction != DIRECTION_SOUTH)
+                {
                     state->pos_y++;
                 }
-            } break;
+            }
+            break;
             case DIRECTION_EAST:
             {
-                if (state->current_direction != DIRECTION_WEST) {
+                if (state->current_direction != DIRECTION_WEST)
+                {
                     state->pos_x++;
                 }
-            } break;
+            }
+            break;
             case DIRECTION_SOUTH:
             {
-                if (state->current_direction != DIRECTION_NORTH) {
+                if (state->current_direction != DIRECTION_NORTH)
+                {
                     state->pos_y--;
                 }
-            } break;
+            }
+            break;
             case DIRECTION_WEST:
             {
-                if (state->current_direction != DIRECTION_EAST) {
+                if (state->current_direction != DIRECTION_EAST)
+                {
                     state->pos_x--;
                 }
-            } break;
+            }
+            break;
         }
 
         state->direction_locked = 0;
         state->time_until_grid_jump__seconds = state->set_time_until_grid_jump__seconds;
-        // printf("x: %d, y: %d, %d, %d\n", state->pos_x, state->pos_y, state->current_direction, state->proposed_direction);
+        // printf("x: %d, y: %d, %d, %d\n", state->pos_x, state->pos_y, state->current_direction,
+        // state->proposed_direction);
     }
-
 }

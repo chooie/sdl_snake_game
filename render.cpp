@@ -14,6 +14,42 @@ void draw_rect(SDL_Rect rect, SDL_Color color) {
     SDL_RenderFillRect(global_renderer, &rect);
 }
 
+void render_text_with_scaling(const char* text, int32 x, int32 y, real32 font_size, SDL_Color text_color)
+{
+    int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
+    // printf("%d\n", pt_size);
+    TTF_Font* font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", pt_size);
+    if (font == nullptr)
+    {
+        std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
+    }
+
+    SDL_Surface* surface = TTF_RenderText_Blended(font, text, text_color);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+    SDL_FreeSurface(surface);
+
+    SDL_Rect rect = {};
+
+    TTF_SizeText(font, text, &rect.w, &rect.h);
+
+    real32 text_aspect_ratio = (real32)rect.w / (real32)rect.h;
+
+    rect.w = (int32)rect.w;
+    rect.h = (int32)(rect.w / text_aspect_ratio);
+
+    rect.w /= 2;
+    rect.h /= 2;
+
+    rect.x = x;
+    rect.y = y;
+
+    SDL_RenderCopy(global_renderer, texture, NULL, &rect);
+
+    // Cleanup
+    SDL_DestroyTexture(texture);
+    TTF_CloseFont(font);
+}
+
 void render_centered_text_with_scaling(const char* text, int32 x, int32 y, real32 desired_width, SDL_Color text_color)
 {   
     SDL_Surface* surface = TTF_RenderText_Blended(global_font, text, text_color);
@@ -26,7 +62,7 @@ void render_centered_text_with_scaling(const char* text, int32 x, int32 y, real3
 
     real32 text_aspect_ratio = (real32)rect.w / (real32)rect.h;
     rect.w = (int32)desired_width;
-    rect.h = int32(desired_width / text_aspect_ratio);
+    rect.h = (int32)(desired_width / text_aspect_ratio);
 
     rect.x = x;
     rect.y = y;
@@ -159,5 +195,21 @@ void render(State* state)
 
         SDL_Color red = {171, 70, 66, 255};
         draw_rect(square, red);
+
+        for (uint32 i = 0; i < MAX_TAIL_LENGTH; i++)
+        {
+            Snake_Part* snake_part = &state->snake_parts[i];
+            Screen_Space_Position screen_pos =
+                map_world_space_position_to_screen_space_position(snake_part->pos_x, snake_part->pos_y);
+
+            SDL_Rect square = {};
+            square.x = (int32)(screen_pos.x);
+            square.y = (int32)(screen_pos.y);
+            square.w = (int32)GRID_BLOCK_SIZE;
+            square.h = (int32)GRID_BLOCK_SIZE;
+
+            SDL_Color darkened_red = {154, 63, 59, 255};
+            draw_rect(square, darkened_red);
+        }
     }
 }

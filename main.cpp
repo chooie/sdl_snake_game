@@ -53,6 +53,7 @@ int32 global_running = 1;
 SDL_Window* global_window;
 SDL_Renderer* global_renderer;
 
+real32 global_text_dpi_scale_factor;
 TTF_Font* global_font;
 TTF_Font* global_debug_font;
 SDL_Rect global_text_rect;
@@ -166,17 +167,18 @@ int32 main(int32 argc, char* argv[])
         // Handle error
     }
 
+    printf("%.f\n", dpi);
     real32 base_DPI = 72.0f;
-    real32 scale_factor = dpi / base_DPI;
+    global_text_dpi_scale_factor = dpi / base_DPI;
 
-    global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256 * scale_factor);
+    global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256 * global_text_dpi_scale_factor);
     if (global_font == nullptr)
     {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
         return -1;
     }
 
-    global_debug_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 16 * scale_factor);
+    global_debug_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 16 * global_text_dpi_scale_factor);
     if (global_debug_font == nullptr)
     {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
@@ -196,18 +198,20 @@ int32 main(int32 argc, char* argv[])
 
     real32 accumulator_s = 0.0f;
 
-    global_paused = 0;
+    global_paused = 1;
     global_display_debug_info = 0;
 
     State starting_state = {};
     starting_state.pos_x = X_GRIDS / 2;
     starting_state.pos_y = Y_GRIDS / 4;
     starting_state.current_direction = DIRECTION_NORTH;
+    starting_state.next_snake_part_index = 0;
+
     starting_state.set_time_until_grid_jump__seconds = .1f;
     starting_state.time_until_grid_jump__seconds = starting_state.set_time_until_grid_jump__seconds;
 
-    starting_state.blip_pos_x = X_GRIDS / 4;
-    starting_state.blip_pos_y = 3 * Y_GRIDS / 4;
+    starting_state.blip_pos_x = X_GRIDS / 2;
+    starting_state.blip_pos_y = Y_GRIDS / 2;
 
     State previous_state = starting_state;
     State current_state = starting_state;
@@ -367,6 +371,17 @@ int32 main(int32 argc, char* argv[])
             SDL_Color text_color = {255, 255, 255};  // White color
             render_centered_text_with_scaling("Snake Game", LOGICAL_WIDTH / 2, 50, LOGICAL_WIDTH * 0.25f, text_color);
 #endif
+
+            { // Render score
+                SDL_Color score_text_color = {255, 255, 255};  // White color
+                uint32 padding = LOGICAL_WIDTH * 0.01f;
+                uint32 score_padding = LOGICAL_WIDTH * 0.05f;
+                render_text_with_scaling("Score:",
+                                         LOGICAL_WIDTH - 400 - score_padding - padding, // X
+                                         0 + padding, // Y
+                                         16.0f,
+                                         score_text_color);
+            }
 
             if (global_display_debug_info)  // Render Debug Info
             {
