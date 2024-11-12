@@ -423,7 +423,7 @@ if (global_debug_counter == 0)
             if (global_display_debug_info)  // Render Debug Info
             {
                 SDL_Color debug_text_color = {255, 255, 255, 255};  // White color
-                real32 font_size = 32.0f;
+                real32 font_size = 16.0f;
                 real32 y_offset = 0;
                 real32 padding = 5.0f;
                 real32 font_height;
