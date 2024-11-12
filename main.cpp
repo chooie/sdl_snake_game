@@ -343,7 +343,7 @@ int32 main(int32 argc, char* argv[])
         master_timer.time_elapsed_for_work__seconds =
             ((real32)(counter_after_work - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
 
-        {  // Write to render buffer
+        { // Write to render buffer
             // Clear the screen
             SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
             SDL_RenderClear(global_renderer);
@@ -356,7 +356,7 @@ int32 main(int32 argc, char* argv[])
                 uint32 padding = LOGICAL_WIDTH * 0.01f;
                 real32 start_x = LOGICAL_WIDTH * 0.75f;
                 SDL_Rect static_score_text_rect = {};
-                render_text_with_scaling("Score:",
+                render_text_with_scaling("SCORE",
                                          start_x - padding, // X
                                          0, // Y
                                          16.0f,
@@ -368,7 +368,7 @@ int32 main(int32 argc, char* argv[])
                 snprintf(score_text, 5, "%d", state.next_snake_part_index);
                 render_text_with_scaling(score_text,
                                          start_x + static_score_text_rect.w + (10) - padding, // X
-                                         1, // Y
+                                         0, // Y
                                          16.0f,
                                          score_text_color,
                                          &dynamic_score_text_rect);
@@ -730,6 +730,7 @@ int32 main(int32 argc, char* argv[])
 #endif
     }
 
+    cleanup_fonts();
     SDL_DestroyRenderer(global_renderer);
     SDL_DestroyWindow(global_window);
     TTF_Quit();

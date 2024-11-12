@@ -14,6 +14,61 @@ void draw_rect(SDL_Rect rect, SDL_Color color) {
     SDL_RenderFillRect(global_renderer, &rect);
 }
 
+#define MAX_FONTS 100  // Define a maximum number of cached fonts
+
+// Define a struct to represent a key-value pair
+typedef struct {
+    int pt_size;
+    TTF_Font* font;
+} FontEntry;
+
+FontEntry global_font_cache[MAX_FONTS];
+int global_font_cache_size = 0;  // Number of entries in the cache
+
+TTF_Font* get_font(int32 pt_size)
+{
+    // Search for the font in the cache
+    for (uint32 i = 0; i < global_font_cache_size; ++i)
+    {
+        if (global_font_cache[i].pt_size == pt_size)
+        {
+            return global_font_cache[i].font;  // Found in cache
+        }
+    }
+
+    // Font not found in cache, so load it
+    TTF_Font* font = TTF_OpenFont("fonts/Share_Tech_Mono/ShareTechMono-Regular.ttf", pt_size);
+    if (!font)
+    {
+        fprintf(stderr, "Failed to load font: %s\n", TTF_GetError());
+        return NULL;
+    }
+
+    // Add the new font to the cache if there's space
+    if (global_font_cache_size < MAX_FONTS)
+    {
+        global_font_cache[global_font_cache_size].pt_size = pt_size;
+        global_font_cache[global_font_cache_size].font = font;
+        global_font_cache_size++;
+    }
+    else
+    {
+        fprintf(stderr, "Font cache is full!\n");
+    }
+
+    return font;
+}
+
+// Cleanup function to free all fonts in the cache
+void cleanup_fonts()
+{
+    for (int i = 0; i < global_font_cache_size; ++i)
+    {
+        TTF_CloseFont(global_font_cache[i].font);
+    }
+    global_font_cache_size = 0;
+}
+
 void render_text_with_scaling(const char* text,
                               int32 x, int32 y,
                               real32 font_size,
@@ -22,11 +77,7 @@ void render_text_with_scaling(const char* text,
 {
     int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
     // printf("%d\n", pt_size);
-    TTF_Font* font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", pt_size);
-    if (font == nullptr)
-    {
-        std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
-    }
+    TTF_Font* font = get_font(pt_size);
 
     SDL_Surface* surface = TTF_RenderText_Blended(font, text, text_color);
     SDL_Texture* texture = SDL_CreateTextureFromSurface(global_renderer, surface);
@@ -45,7 +96,6 @@ void render_text_with_scaling(const char* text,
 
     // Cleanup
     SDL_DestroyTexture(texture);
-    TTF_CloseFont(font);
 }
 
 void render_text_with_scaling(const char* text,
@@ -79,18 +129,19 @@ map_world_space_position_to_screen_space_position(real32 world_x, real32 world_y
 
 void render(State* state)
 {
-    // SDL_Rect drawable_canvas;
-    // drawable_canvas.x = 0;
-    // drawable_canvas.y = 0;
-    // drawable_canvas.w = LOGICAL_WIDTH;
-    // drawable_canvas.h = LOGICAL_HEIGHT;
+    // NOTE: We need this to distinguish the 'usable canvas' from the black dead-space (due to differing aspect ratios)
+    SDL_Rect drawable_canvas;
+    drawable_canvas.x = 0;
+    drawable_canvas.y = 0;
+    drawable_canvas.w = LOGICAL_WIDTH;
+    drawable_canvas.h = LOGICAL_HEIGHT;
 
     // Set the clip rectangle to restrict rendering
-    // SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
+    SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
 
     // Use a neutral background color to not cause too much eye strain
-    // SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
-    // SDL_RenderFillRect(global_renderer, &drawable_canvas);
+    SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
+    SDL_RenderFillRect(global_renderer, &drawable_canvas);
 
 #if 1
     // TODO: This is really slow
