@@ -54,7 +54,6 @@ SDL_Renderer* global_renderer;
 
 real32 global_text_dpi_scale_factor;
 TTF_Font* global_font;
-TTF_Font* global_debug_font;
 SDL_Rect global_text_rect;
 SDL_Surface* global_text_surface;
 SDL_Texture* global_text_texture;
@@ -177,13 +176,6 @@ int32 main(int32 argc, char* argv[])
 
     global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256 * global_text_dpi_scale_factor);
     if (global_font == nullptr)
-    {
-        std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
-        return -1;
-    }
-
-    global_debug_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 16 * global_text_dpi_scale_factor);
-    if (global_debug_font == nullptr)
     {
         std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
         return -1;
@@ -358,11 +350,7 @@ int32 main(int32 argc, char* argv[])
 
 #if 1
             render(&state);
-
-            // SDL_Color text_color = {255, 255, 255, 255};  // White color
-            // render_centered_text_with_scaling("Snake Game", LOGICAL_WIDTH / 2, 50, LOGICAL_WIDTH * 0.25f, text_color);
-
-#if 0
+#if 1
             { // Render score
                 SDL_Color score_text_color = {255, 255, 255, 255};  // White color
                 uint32 padding = LOGICAL_WIDTH * 0.01f;
@@ -379,8 +367,8 @@ int32 main(int32 argc, char* argv[])
                 char score_text[5]; // Make sure the buffer is large enough
                 snprintf(score_text, 5, "%d", state.next_snake_part_index);
                 render_text_with_scaling(score_text,
-                                         start_x + static_score_text_rect.w + (4) - padding, // X
-                                         0, // Y
+                                         start_x + static_score_text_rect.w + (10) - padding, // X
+                                         1, // Y
                                          16.0f,
                                          score_text_color,
                                          &dynamic_score_text_rect);
@@ -742,8 +730,6 @@ int32 main(int32 argc, char* argv[])
 #endif
     }
 
-    TTF_CloseFont(global_font);
-    TTF_CloseFont(global_debug_font);
     SDL_DestroyRenderer(global_renderer);
     SDL_DestroyWindow(global_window);
     TTF_Quit();

@@ -57,54 +57,6 @@ void render_text_with_scaling(const char* text,
     render_text_with_scaling(text, x, y, font_size, text_color, &rect);
 }
 
-void render_centered_text_with_scaling(const char* text, int32 x, int32 y, real32 desired_width, SDL_Color text_color)
-{   
-    SDL_Surface* surface = TTF_RenderText_Blended(global_font, text, text_color);
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(global_renderer, surface);
-    SDL_FreeSurface(surface);
-
-    SDL_Rect rect = {};
-
-    TTF_SizeText(global_font, text, &rect.w, &rect.h);
-
-    real32 text_aspect_ratio = (real32)rect.w / (real32)rect.h;
-    rect.w = (int32)desired_width;
-    rect.h = (int32)(desired_width / text_aspect_ratio);
-
-    rect.x = x;
-    rect.y = y;
-
-    // Center
-    rect.x -= rect.w / 2;
-    rect.y -= rect.h / 2;
-
-    SDL_RenderCopy(global_renderer, texture, NULL, &rect);
-
-    // Cleanup
-    SDL_DestroyTexture(texture);
-}
-
-void render_text_no_scaling(const char* text, int32 x, int32 y, SDL_Color text_color)
-{   // NOTE: text is left-aligned
-    
-    SDL_Surface* surface = TTF_RenderText_Blended(global_debug_font, text, text_color);
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(global_renderer, surface);
-    SDL_FreeSurface(surface);
-
-    SDL_Rect rect = {};
-
-    // TTF_SetFontSize(global_font, 512);
-    TTF_SizeText(global_debug_font, text, &rect.w, &rect.h);
-
-    rect.x = x;
-    rect.y = y;
-
-    SDL_RenderCopy(global_renderer, texture, NULL, &rect);
-
-    // Cleanup
-    SDL_DestroyTexture(texture);
-}
-
 struct Screen_Space_Position {
     real32 x;
     real32 y;
@@ -203,7 +155,7 @@ void render(State* state)
         SDL_Color red = {171, 70, 66, 255};
         draw_rect(square, red);
 
-        for (uint32 i = 0; i < MAX_TAIL_LENGTH; i++)
+        for (uint32 i = 0; i < state->next_snake_part_index; i++)
         {
             Snake_Part* snake_part = &state->snake_parts[i];
             Screen_Space_Position screen_pos =

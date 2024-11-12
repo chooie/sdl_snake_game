@@ -6,13 +6,15 @@ uint32 seed = 12345; // Initial seed value
 #define LCG_C 1013904223u
 
 // Function to generate a pseudorandom number using LCG
-uint32 custom_rand() {
+uint32 custom_rand()
+{
     seed = LCG_A * seed + LCG_C;
     return seed;
 }
 
 // Function to generate a number between 0 and max - 1 (inclusive)
-uint32 custom_rand_range(uint32 max) {
+uint32 custom_rand_range(uint32 max)
+{
     return custom_rand() % (max);
 }
 
@@ -32,7 +34,7 @@ struct Snake_Part
     Direction direction;
 };
 
-#define MAX_TAIL_LENGTH 100
+#define MAX_TAIL_LENGTH 1000
 
 struct State
 {
@@ -163,6 +165,13 @@ void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
                 new_snake_part.pos_y = last_snake_part->pos_y;
                 new_snake_part.direction = last_snake_part->direction;
                 state->next_snake_part_index++;
+
+                if (!(state->next_snake_part_index < MAX_TAIL_LENGTH))
+                {
+                    SDL_SetError("Snake tail must never get this long! %d", state->next_snake_part_index);
+                    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", SDL_GetError());
+                    SDL_assert_release(state->next_snake_part_index < MAX_TAIL_LENGTH);
+                }
             }
 
             { // Randomly spawn blip somewhere else
