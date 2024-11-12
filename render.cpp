@@ -127,18 +127,18 @@ map_world_space_position_to_screen_space_position(real32 world_x, real32 world_y
 
 void render(State* state)
 {
-    SDL_Rect drawable_canvas;
-    drawable_canvas.x = 0;
-    drawable_canvas.y = 0;
-    drawable_canvas.w = LOGICAL_WIDTH;
-    drawable_canvas.h = LOGICAL_HEIGHT;
+    // SDL_Rect drawable_canvas;
+    // drawable_canvas.x = 0;
+    // drawable_canvas.y = 0;
+    // drawable_canvas.w = LOGICAL_WIDTH;
+    // drawable_canvas.h = LOGICAL_HEIGHT;
 
     // Set the clip rectangle to restrict rendering
-    SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
+    // SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
 
     // Use a neutral background color to not cause too much eye strain
-    SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
-    SDL_RenderFillRect(global_renderer, &drawable_canvas);
+    // SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
+    // SDL_RenderFillRect(global_renderer, &drawable_canvas);
 
 #if 1
     // TODO: This is really slow

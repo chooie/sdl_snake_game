@@ -375,12 +375,12 @@ int32 main(int32 argc, char* argv[])
             SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
             SDL_RenderClear(global_renderer);
 
+#if 1
             render(&state);
 
 #if 0
             SDL_Color text_color = {255, 255, 255, 255};  // White color
             render_centered_text_with_scaling("Snake Game", LOGICAL_WIDTH / 2, 50, LOGICAL_WIDTH * 0.25f, text_color);
-#endif
 
             { // Render score
                 SDL_Color score_text_color = {255, 255, 255, 255};  // White color
@@ -404,7 +404,22 @@ int32 main(int32 argc, char* argv[])
                                          score_text_color,
                                          &dynamic_score_text_rect);
             }
+#endif
+#endif
 
+{ // TODO: DELETE THIS TEST CODE
+
+real32 ms_per_frame = total_LAST_frame_time_elapsed__seconds * 1000.0f;
+real32 writing_buffer_ms_per_frame = LAST_frame_time_elapsed_for_writing_buffer__seconds * 1000.0f;
+if (global_debug_counter == 0)
+{
+    printf("Buffer ms: %.04f, (%.1f%%)\n",
+             writing_buffer_ms_per_frame,
+             (writing_buffer_ms_per_frame / ms_per_frame) * 100);
+}
+}
+
+#if 1
             if (global_display_debug_info)  // Render Debug Info
             {
                 SDL_Color debug_text_color = {255, 255, 255, 255};  // White color
@@ -593,7 +608,9 @@ int32 main(int32 argc, char* argv[])
                     y_offset += vertical_offset;
                 }
             }
+#endif
 
+#if 0
             if (global_debug_counter == 0)  // FPS Timer in Window Name
             {
                 real32 fps = 1.0f / master_timer.total_frame_time_elapsed__seconds;
@@ -619,6 +636,7 @@ int32 main(int32 argc, char* argv[])
 
                 SDL_SetWindowTitle(global_window, title_str);
             }
+#endif
         }
 
         Uint64 counter_after_writing_buffer = SDL_GetPerformanceCounter();
