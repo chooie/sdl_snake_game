@@ -7,7 +7,7 @@ if [ ! -d "build" ]; then
   cp -P vendor/SDL2/macos/lib/*.dylib build/
 fi
 
-g++ -I vendor/SDL2/macos/include -L vendor/SDL2/macos/lib -o build/sdl_starter main.cpp -lSDL2 -lSDL2_ttf
+g++ -Wno-switch -I vendor/SDL2/macos/include -L vendor/SDL2/macos/lib -o build/sdl_starter main.cpp -lSDL2 -lSDL2_ttf
 
 # SDL2
 install_name_tool -change /usr/local/opt/sdl2/lib/libSDL2-2.0.0.dylib @executable_path/libSDL2.dylib build/sdl_starter

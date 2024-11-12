@@ -14,7 +14,11 @@ void draw_rect(SDL_Rect rect, SDL_Color color) {
     SDL_RenderFillRect(global_renderer, &rect);
 }
 
-void render_text_with_scaling(const char* text, int32 x, int32 y, real32 font_size, SDL_Color text_color)
+void render_text_with_scaling(const char* text,
+                              int32 x, int32 y,
+                              real32 font_size,
+                              SDL_Color text_color,
+                              SDL_Rect* return_rect)
 {
     int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
     // printf("%d\n", pt_size);
@@ -26,28 +30,31 @@ void render_text_with_scaling(const char* text, int32 x, int32 y, real32 font_si
 
     SDL_Surface* surface = TTF_RenderText_Blended(font, text, text_color);
     SDL_Texture* texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+    // Pass-through the color's alpha channel to control opacity
+    SDL_SetTextureAlphaMod(texture, text_color.a);
     SDL_FreeSurface(surface);
 
-    SDL_Rect rect = {};
+    return_rect->x = x;
+    return_rect->y = y;
+    SDL_QueryTexture(texture, NULL, NULL, &return_rect->w, &return_rect->h);
 
-    TTF_SizeText(font, text, &rect.w, &rect.h);
+    return_rect->w /= global_text_dpi_scale_factor;
+    return_rect->h /= global_text_dpi_scale_factor;
 
-    real32 text_aspect_ratio = (real32)rect.w / (real32)rect.h;
-
-    rect.w = (int32)rect.w;
-    rect.h = (int32)(rect.w / text_aspect_ratio);
-
-    rect.w /= 2;
-    rect.h /= 2;
-
-    rect.x = x;
-    rect.y = y;
-
-    SDL_RenderCopy(global_renderer, texture, NULL, &rect);
+    SDL_RenderCopy(global_renderer, texture, NULL, return_rect);
 
     // Cleanup
     SDL_DestroyTexture(texture);
     TTF_CloseFont(font);
+}
+
+void render_text_with_scaling(const char* text,
+                              int32 x, int32 y,
+                              real32 font_size,
+                              SDL_Color text_color)
+{
+    SDL_Rect rect = {};
+    render_text_with_scaling(text, x, y, font_size, text_color, &rect);
 }
 
 void render_centered_text_with_scaling(const char* text, int32 x, int32 y, real32 desired_width, SDL_Color text_color)

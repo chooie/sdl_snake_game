@@ -71,13 +71,27 @@ struct Master_Timer
     Uint64 last_frame_counter;
     Uint64 COUNTER_FREQUENCY;
 
-    real32 frame_time_elapsed_for_work__seconds;      // How much time was needed for simulation stuff
-    real32 frame_time_elapsed_for_render__seconds;    // How much time was needed for rendering?
-    real32 frame_time_elapsed_for_sleep__seconds;     // How much time was needed for rendering?
-    real32 total_frame_time_elapsed__seconds;         // How long did the whole dang frame take?
-    real64 physics_simulation_elapsed_time__seconds;  // This is the main counter for time. Everything will rely on what
-                                                      // the physics sees
+    real32 frame_time_elapsed_for_work__seconds;            // How much time was needed for simulation stuff
+    real32 frame_time_elapsed_for_writing_buffer__seconds;  // How much time was needed for writing to render buffer?
+    real32 frame_time_elapsed_for_render__seconds;          // How much time was needed for rendering?
+    real32 frame_time_elapsed_for_sleep__seconds;           // How much time was needed for sleeping?
+    real32 total_frame_time_elapsed__seconds;               // How long did the whole dang frame take?
+    real64 physics_simulation_elapsed_time__seconds;        // This is the main counter for time. Everything will rely
+                                                            // on what the physics sees
 };
+
+void set_dpi()
+{
+    real32 dpi;
+    if (SDL_GetDisplayDPI(0, &dpi, NULL, NULL) == 0) {
+        // Successfully retrieved DPI
+    } else {
+        // Handle error
+    }
+
+    real32 base_DPI = 72.0f;
+    global_text_dpi_scale_factor = dpi / base_DPI;
+}
 
 #ifdef __WIN32__
 uint64 global_last_cycle_count;
@@ -160,16 +174,7 @@ int32 main(int32 argc, char* argv[])
     SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, "1");
 #endif
 
-    real32 dpi;
-    if (SDL_GetDisplayDPI(0, &dpi, NULL, NULL) == 0) {
-        // Successfully retrieved DPI
-    } else {
-        // Handle error
-    }
-
-    printf("%.f\n", dpi);
-    real32 base_DPI = 72.0f;
-    global_text_dpi_scale_factor = dpi / base_DPI;
+    set_dpi();
 
     global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256 * global_text_dpi_scale_factor);
     if (global_font == nullptr)
@@ -231,6 +236,7 @@ int32 main(int32 argc, char* argv[])
     char fps_text[100] = "";
     char ms_per_frame_text[100] = "";
     char work_ms_per_frame_text[100] = "";
+    char writing_buffer_ms_per_frame_text[100] = "";
     char render_ms_per_frame_text[100] = "";
     char sleep_ms_per_frame_text[100] = "";
 
@@ -239,6 +245,7 @@ int32 main(int32 argc, char* argv[])
     while (global_running)
     {
         real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.frame_time_elapsed_for_work__seconds;
+        real32 LAST_frame_time_elapsed_for_writing_buffer__seconds = master_timer.frame_time_elapsed_for_writing_buffer__seconds;
         real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.frame_time_elapsed_for_render__seconds;
         real32 LAST_frame_time_elapsed_for_sleep__seconds = master_timer.frame_time_elapsed_for_sleep__seconds;
         real32 total_LAST_frame_time_elapsed__seconds = master_timer.total_frame_time_elapsed__seconds;
@@ -360,7 +367,7 @@ int32 main(int32 argc, char* argv[])
         master_timer.frame_time_elapsed_for_work__seconds =
             ((real32)(counter_after_work - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
 
-        {  // Render
+        {  // Write to render buffer
             // Clear the screen
             SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
             SDL_RenderClear(global_renderer);
@@ -368,31 +375,41 @@ int32 main(int32 argc, char* argv[])
             render(&state);
 
 #if 0
-            SDL_Color text_color = {255, 255, 255};  // White color
+            SDL_Color text_color = {255, 255, 255, 255};  // White color
             render_centered_text_with_scaling("Snake Game", LOGICAL_WIDTH / 2, 50, LOGICAL_WIDTH * 0.25f, text_color);
 #endif
 
             { // Render score
-                SDL_Color score_text_color = {255, 255, 255};  // White color
+                SDL_Color score_text_color = {255, 255, 255, 255};  // White color
                 uint32 padding = LOGICAL_WIDTH * 0.01f;
-                uint32 score_padding = LOGICAL_WIDTH * 0.05f;
+                real32 start_x = LOGICAL_WIDTH * 0.75f;
+                SDL_Rect static_score_text_rect = {};
                 render_text_with_scaling("Score:",
-                                         LOGICAL_WIDTH - 400 - score_padding - padding, // X
-                                         0 + padding, // Y
+                                         start_x - padding, // X
+                                         0, // Y
                                          16.0f,
-                                         score_text_color);
+                                         score_text_color,
+                                         &static_score_text_rect);
+
+                SDL_Rect dynamic_score_text_rect = {};
+                char score_text[5]; // Make sure the buffer is large enough
+                snprintf(score_text, 5, "%d", state.next_snake_part_index);
+                render_text_with_scaling(score_text,
+                                         start_x + static_score_text_rect.w + (4) - padding, // X
+                                         0, // Y
+                                         16.0f,
+                                         score_text_color,
+                                         &dynamic_score_text_rect);
             }
 
             if (global_display_debug_info)  // Render Debug Info
             {
-                // Disable logical size scaling temporarily
-                SDL_RenderSetLogicalSize(global_renderer, 0, 0);
-
-                SDL_Color debug_text_color = {255, 255, 255};  // White color
+                SDL_Color debug_text_color = {255, 255, 255, 255};  // White color
+                real32 font_size = 16.0f;
                 real32 y_offset = 0;
-                int32 font_height = TTF_FontHeight(global_debug_font);
                 real32 padding = 5.0f;
-                real32 vertical_offset = font_height + padding;
+                real32 font_height;
+                real32 vertical_offset;
 
 #ifdef __WIN32__
                 {  // Mega Cycles Per Frame
@@ -458,10 +475,18 @@ int32 main(int32 argc, char* argv[])
                         snprintf(fps_text, sizeof(fps_text), "FPS: %.02f", fps);
                     }
 
-                    render_text_no_scaling(fps_text,
-                                           (int32)(LOGICAL_WIDTH * 0.01f),
-                                           (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                           debug_text_color);
+                    SDL_Rect rect;
+                    render_text_with_scaling(fps_text,
+                                             (int32)(LOGICAL_WIDTH * 0.01f),
+                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                             font_size,
+                                             debug_text_color,
+                                             &rect);
+
+                    // TODO: better way of calculating height for offsets
+                    // TODO: do this offset for the windows-specific debug info (above)
+                    font_height = rect.h;
+                    vertical_offset = font_height + padding;
                     y_offset += vertical_offset;
                 }
 
@@ -477,10 +502,11 @@ int32 main(int32 argc, char* argv[])
                                  TARGET_TIME_PER_FRAME_MS);
                     }
 
-                    render_text_no_scaling(ms_per_frame_text,
-                                           (int32)(LOGICAL_WIDTH * 0.01f),
-                                           (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                           debug_text_color);
+                    render_text_with_scaling(ms_per_frame_text,
+                                             (int32)(LOGICAL_WIDTH * 0.01f),
+                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                             font_size,
+                                             debug_text_color);
                     y_offset += vertical_offset;
                 }
 
@@ -496,10 +522,31 @@ int32 main(int32 argc, char* argv[])
                                  (work_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    render_text_no_scaling(work_ms_per_frame_text,
-                                           (int32)(LOGICAL_WIDTH * 0.01f),
-                                           (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                           debug_text_color);
+                    render_text_with_scaling(work_ms_per_frame_text,
+                                             (int32)(LOGICAL_WIDTH * 0.01f),
+                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                             font_size,
+                                             debug_text_color);
+                    y_offset += vertical_offset;
+                }
+
+                {  // Buffer Writing Time (MS)
+                    real32 writing_buffer_ms_per_frame = LAST_frame_time_elapsed_for_writing_buffer__seconds * 1000.0f;
+
+                    if (global_debug_counter == 0)
+                    {
+                        snprintf(writing_buffer_ms_per_frame_text,
+                                 sizeof(writing_buffer_ms_per_frame_text),
+                                 "Buffer ms: %.04f, (%.1f%%)",
+                                 writing_buffer_ms_per_frame,
+                                 (writing_buffer_ms_per_frame / ms_per_frame) * 100);
+                    }
+
+                    render_text_with_scaling(writing_buffer_ms_per_frame_text,
+                                             (int32)(LOGICAL_WIDTH * 0.01f),
+                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                             font_size,
+                                             debug_text_color);
                     y_offset += vertical_offset;
                 }
 
@@ -515,10 +562,11 @@ int32 main(int32 argc, char* argv[])
                                  (render_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    render_text_no_scaling(render_ms_per_frame_text,
-                                           (int32)(LOGICAL_WIDTH * 0.01f),
-                                           (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                           debug_text_color);
+                    render_text_with_scaling(render_ms_per_frame_text,
+                                             (int32)(LOGICAL_WIDTH * 0.01f),
+                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                             font_size,
+                                             debug_text_color);
                     y_offset += vertical_offset;
                 }
 
@@ -534,15 +582,13 @@ int32 main(int32 argc, char* argv[])
                                  (sleep_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    render_text_no_scaling(sleep_ms_per_frame_text,
-                                           (int32)(LOGICAL_WIDTH * 0.01f),
-                                           (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                           debug_text_color);
+                    render_text_with_scaling(sleep_ms_per_frame_text,
+                                             (int32)(LOGICAL_WIDTH * 0.01f),
+                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
+                                             font_size,
+                                             debug_text_color);
                     y_offset += vertical_offset;
                 }
-
-                // Re-enable logical size scaling for other elements
-                SDL_RenderSetLogicalSize(global_renderer, LOGICAL_WIDTH, LOGICAL_HEIGHT);
             }
 
             if (global_debug_counter == 0)  // FPS Timer in Window Name
@@ -550,7 +596,7 @@ int32 main(int32 argc, char* argv[])
                 real32 fps = 1.0f / master_timer.total_frame_time_elapsed__seconds;
 
                 char fps_str[30];  // Allocate enough space for the string
-                sprintf(fps_str, "%.2f", fps);
+                snprintf(fps_str, 30, "%.2f", fps);
 
                 char title_str[100] = "SDL Starter (FPS: ";
                 int index_to_start_adding = 0;
@@ -570,8 +616,13 @@ int32 main(int32 argc, char* argv[])
 
                 SDL_SetWindowTitle(global_window, title_str);
             }
+        }
 
-            // Present the rendered content
+        Uint64 counter_after_writing_buffer = SDL_GetPerformanceCounter();
+        master_timer.frame_time_elapsed_for_writing_buffer__seconds =
+            ((real32)(counter_after_writing_buffer - counter_after_work) / (real32)master_timer.COUNTER_FREQUENCY);
+
+        { // Present the rendered content (Will block for vsync)
             SDL_RenderPresent(global_renderer);
             SDL_SetRenderTarget(global_renderer, NULL);
         }
@@ -583,7 +634,7 @@ int32 main(int32 argc, char* argv[])
 
         Uint64 counter_after_render = SDL_GetPerformanceCounter();
         master_timer.frame_time_elapsed_for_render__seconds =
-            ((real32)(counter_after_render - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
+            ((real32)(counter_after_render - counter_after_writing_buffer) / (real32)master_timer.COUNTER_FREQUENCY);
 
         {  // Sleep if necessary
             if (!VSYNC_ENABLED)
