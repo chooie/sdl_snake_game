@@ -71,13 +71,13 @@ struct Master_Timer
     Uint64 last_frame_counter;
     Uint64 COUNTER_FREQUENCY;
 
-    real32 frame_time_elapsed_for_work__seconds;            // How much time was needed for simulation stuff
-    real32 frame_time_elapsed_for_writing_buffer__seconds;  // How much time was needed for writing to render buffer?
-    real32 frame_time_elapsed_for_render__seconds;          // How much time was needed for rendering?
-    real32 frame_time_elapsed_for_sleep__seconds;           // How much time was needed for sleeping?
-    real32 total_frame_time_elapsed__seconds;               // How long did the whole dang frame take?
-    real64 physics_simulation_elapsed_time__seconds;        // This is the main counter for time. Everything will rely
-                                                            // on what the physics sees
+    real32 time_elapsed_for_work__seconds;            // How much time was needed for simulation stuff
+    real32 time_elapsed_for_writing_buffer__seconds;  // How much time was needed for writing to render buffer?
+    real32 time_elapsed_for_render__seconds;          // How much time was needed for rendering?
+    real32 time_elapsed_for_sleep__seconds;           // How much time was needed for sleeping?
+    real32 total_frame_time_elapsed__seconds;         // How long did the whole dang frame take?
+    real64 physics_simulation_elapsed_time__seconds;  // This is the main counter for time. Everything will rely on what
+                                                      // the physics sees
 };
 
 void set_dpi()
@@ -244,10 +244,10 @@ int32 main(int32 argc, char* argv[])
 
     while (global_running)
     {
-        real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.frame_time_elapsed_for_work__seconds;
-        real32 LAST_frame_time_elapsed_for_writing_buffer__seconds = master_timer.frame_time_elapsed_for_writing_buffer__seconds;
-        real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.frame_time_elapsed_for_render__seconds;
-        real32 LAST_frame_time_elapsed_for_sleep__seconds = master_timer.frame_time_elapsed_for_sleep__seconds;
+        real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.time_elapsed_for_work__seconds;
+        real32 LAST_frame_time_elapsed_for_writing_buffer__seconds = master_timer.time_elapsed_for_writing_buffer__seconds;
+        real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.time_elapsed_for_render__seconds;
+        real32 LAST_frame_time_elapsed_for_sleep__seconds = master_timer.time_elapsed_for_sleep__seconds;
         real32 total_LAST_frame_time_elapsed__seconds = master_timer.total_frame_time_elapsed__seconds;
 
 #ifdef __WIN32__
@@ -259,24 +259,27 @@ int32 main(int32 argc, char* argv[])
 
         handle_input(&event, &input);
 
-        if (pressed_local(BUTTON_W))
-        {
-            add_input(DIRECTION_NORTH);
-        }
+        if (!global_paused) {
 
-        if (pressed_local(BUTTON_A))
-        {
-            add_input(DIRECTION_WEST);
-        }
+            if (pressed_local(BUTTON_W))
+            {
+                add_input(DIRECTION_NORTH);
+            }
 
-        if (pressed_local(BUTTON_S))
-        {
-            add_input(DIRECTION_SOUTH);
-        }
+            if (pressed_local(BUTTON_A))
+            {
+                add_input(DIRECTION_WEST);
+            }
 
-        if (pressed_local(BUTTON_D))
-        {
-            add_input(DIRECTION_EAST);
+            if (pressed_local(BUTTON_S))
+            {
+                add_input(DIRECTION_SOUTH);
+            }
+
+            if (pressed_local(BUTTON_D))
+            {
+                add_input(DIRECTION_EAST);
+            }
         }
 
         State state;
@@ -364,7 +367,7 @@ int32 main(int32 argc, char* argv[])
         }
 
         Uint64 counter_after_work = SDL_GetPerformanceCounter();
-        master_timer.frame_time_elapsed_for_work__seconds =
+        master_timer.time_elapsed_for_work__seconds =
             ((real32)(counter_after_work - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
 
         {  // Write to render buffer
@@ -405,7 +408,7 @@ int32 main(int32 argc, char* argv[])
             if (global_display_debug_info)  // Render Debug Info
             {
                 SDL_Color debug_text_color = {255, 255, 255, 255};  // White color
-                real32 font_size = 16.0f;
+                real32 font_size = 32.0f;
                 real32 y_offset = 0;
                 real32 padding = 5.0f;
                 real32 font_height;
@@ -619,7 +622,7 @@ int32 main(int32 argc, char* argv[])
         }
 
         Uint64 counter_after_writing_buffer = SDL_GetPerformanceCounter();
-        master_timer.frame_time_elapsed_for_writing_buffer__seconds =
+        master_timer.time_elapsed_for_writing_buffer__seconds =
             ((real32)(counter_after_writing_buffer - counter_after_work) / (real32)master_timer.COUNTER_FREQUENCY);
 
         { // Present the rendered content (Will block for vsync)
@@ -633,13 +636,15 @@ int32 main(int32 argc, char* argv[])
 #endif
 
         Uint64 counter_after_render = SDL_GetPerformanceCounter();
-        master_timer.frame_time_elapsed_for_render__seconds =
+        master_timer.time_elapsed_for_render__seconds =
             ((real32)(counter_after_render - counter_after_writing_buffer) / (real32)master_timer.COUNTER_FREQUENCY);
 
         {  // Sleep if necessary
             if (!VSYNC_ENABLED)
             {
-                real32 sleep_time_s = TARGET_TIME_PER_FRAME_S - master_timer.frame_time_elapsed_for_render__seconds;
+                real32 total_time_elapsed_for_frame_before_sleep__seconds =
+                    ((real32)(counter_after_render - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
+                real32 sleep_time_s = TARGET_TIME_PER_FRAME_S - total_time_elapsed_for_frame_before_sleep__seconds;
 
                 if (sleep_time_s > 0)
                 {
@@ -662,7 +667,7 @@ int32 main(int32 argc, char* argv[])
 #endif
 
         Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
-        master_timer.frame_time_elapsed_for_sleep__seconds =
+        master_timer.time_elapsed_for_sleep__seconds =
             ((real32)(counter_after_sleep - counter_after_render) / (real32)master_timer.COUNTER_FREQUENCY);
         master_timer.total_frame_time_elapsed__seconds =
             ((real32)(counter_after_sleep - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
