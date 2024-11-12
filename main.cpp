@@ -13,8 +13,7 @@
 
 bool32 TEXT_DEBUGGING_ENABLED = 1;
 bool32 VSYNC_ENABLED = 0;
-// real32 TARGET_SCREEN_FPS = 58.9f;
-real32 TARGET_SCREEN_FPS = 120.f;
+real32 TARGET_SCREEN_FPS = 58.9f;
 
 struct Button_State
 {
