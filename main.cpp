@@ -11,9 +11,10 @@
 #endif
 // clang-format on
 
-#include <chrono>
-
-bool32 VSYNC_ENABLED = 1;
+bool32 TEXT_DEBUGGING_ENABLED = 1;
+bool32 VSYNC_ENABLED = 0;
+// real32 TARGET_SCREEN_FPS = 58.9f;
+real32 TARGET_SCREEN_FPS = 120.f;
 
 struct Button_State
 {
@@ -45,7 +46,6 @@ int32 window_height = LOGICAL_HEIGHT;
 real32 SIMULATION_FPS = 100;
 real32 SIMULATION_DELTA_TIME_S = 1.f / SIMULATION_FPS;
 
-real32 TARGET_SCREEN_FPS = 58.9f;
 real32 TARGET_TIME_PER_FRAME_S = 1.f / (real32)TARGET_SCREEN_FPS;
 real32 TARGET_TIME_PER_FRAME_MS = TARGET_TIME_PER_FRAME_S * 1000.0f;
 
@@ -326,25 +326,8 @@ int32 main(int32 argc, char* argv[])
                 }
             }
 
+#if 0 // Eat CPU time to test debug stuff
             {  // Eat CPU time
-#if 0
-#if 0
-                // Eat CPU time to test debug stuff
-                auto start = std::chrono::high_resolution_clock::now();
-    
-                // Run a loop that consumes CPU cycles for 10 seconds
-                while (true) {
-                    auto now = std::chrono::high_resolution_clock::now();
-                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
-            
-                    if (duration.count() >= 4.0f) {
-                        break;
-                    }
-                }
-#endif
-
-#if 0
-                // Eat CPU time to test debug stuff
                 uint64 target_cycles = (uint64)(0.01 * 1000.0f * 1000.0f * 1000.0f); // Adjust this to simulate the desired load
                 uint64 start_cycles = __rdtsc();
 
@@ -361,9 +344,8 @@ int32 main(int32 argc, char* argv[])
                         break;
                     }
                 }
-#endif
-#endif
             }
+#endif
         }
 
         Uint64 counter_after_work = SDL_GetPerformanceCounter();
@@ -378,10 +360,10 @@ int32 main(int32 argc, char* argv[])
 #if 1
             render(&state);
 
-#if 0
-            SDL_Color text_color = {255, 255, 255, 255};  // White color
-            render_centered_text_with_scaling("Snake Game", LOGICAL_WIDTH / 2, 50, LOGICAL_WIDTH * 0.25f, text_color);
+            // SDL_Color text_color = {255, 255, 255, 255};  // White color
+            // render_centered_text_with_scaling("Snake Game", LOGICAL_WIDTH / 2, 50, LOGICAL_WIDTH * 0.25f, text_color);
 
+#if 0
             { // Render score
                 SDL_Color score_text_color = {255, 255, 255, 255};  // White color
                 uint32 padding = LOGICAL_WIDTH * 0.01f;
@@ -406,20 +388,75 @@ int32 main(int32 argc, char* argv[])
             }
 #endif
 #endif
+            if (TEXT_DEBUGGING_ENABLED) // Displays Debug info in the console
+            {
+                { // FPS
+                    real32 fps = 1.0f / total_LAST_frame_time_elapsed__seconds;
+                    if (global_debug_counter == 0)
+                    {
+                        printf("FPS: %.1f, ", fps);
+                    }
+                }
 
-{ // TODO: DELETE THIS TEST CODE
+                real32 ms_per_frame = total_LAST_frame_time_elapsed__seconds * 1000.0f;
+                {  // Total Frame Time (MS)
+                    if (global_debug_counter == 0)
+                    {
+                        printf("Ms/frame: %.04f (Target: %.04f), ",
+                               ms_per_frame,
+                               TARGET_TIME_PER_FRAME_MS);
+                    }
+                }
 
-real32 ms_per_frame = total_LAST_frame_time_elapsed__seconds * 1000.0f;
-real32 writing_buffer_ms_per_frame = LAST_frame_time_elapsed_for_writing_buffer__seconds * 1000.0f;
-if (global_debug_counter == 0)
-{
-    printf("Buffer ms: %.04f, (%.1f%%)\n",
-             writing_buffer_ms_per_frame,
-             (writing_buffer_ms_per_frame / ms_per_frame) * 100);
-}
-}
+                {  // Work Frame Time (MS)
+                    real32 work_ms_per_frame = LAST_frame_time_elapsed_for_work__seconds * 1000.0f;
 
-#if 1
+                    if (global_debug_counter == 0)
+                    {
+                        printf("Work ms: %.04f, (%.1f%%), ",
+                               work_ms_per_frame,
+                               (work_ms_per_frame / ms_per_frame) * 100);
+                    }
+                }
+
+                { // Buffer Ms
+                    real32 writing_buffer_ms_per_frame = LAST_frame_time_elapsed_for_writing_buffer__seconds * 1000.0f;
+                    if (global_debug_counter == 0)
+                    {
+                        printf("Buffer ms: %.04f, (%.1f%%), ",
+                               writing_buffer_ms_per_frame,
+                               (writing_buffer_ms_per_frame / ms_per_frame) * 100);
+                    }
+                }
+
+                {  // Render Frame Time (MS)
+                    real32 render_ms_per_frame = LAST_frame_time_elapsed_for_render__seconds * 1000.0f;
+
+                    if (global_debug_counter == 0)
+                    {
+                        printf("Render ms: %.04f, (%.1f%%), ",
+                               render_ms_per_frame,
+                               (render_ms_per_frame / ms_per_frame) * 100);
+                    }
+                }
+
+                {  // Sleep Frame Time (MS)
+                    real32 sleep_ms_per_frame = LAST_frame_time_elapsed_for_sleep__seconds * 1000.0f;
+
+                    if (global_debug_counter == 0)
+                    {
+                        printf("Sleep ms: %.04f, (%.1f%%)",
+                               sleep_ms_per_frame,
+                               (sleep_ms_per_frame / ms_per_frame) * 100);
+                    }
+                }
+
+                if (global_debug_counter == 0) {
+                    printf("\n");
+                }
+            }
+
+#if 1 // Render Debug Info
             if (global_display_debug_info)  // Render Debug Info
             {
                 SDL_Color debug_text_color = {255, 255, 255, 255};  // White color
@@ -610,7 +647,7 @@ if (global_debug_counter == 0)
             }
 #endif
 
-#if 0
+#if 1
             if (global_debug_counter == 0)  // FPS Timer in Window Name
             {
                 real32 fps = 1.0f / master_timer.total_frame_time_elapsed__seconds;
@@ -643,10 +680,11 @@ if (global_debug_counter == 0)
         master_timer.time_elapsed_for_writing_buffer__seconds =
             ((real32)(counter_after_writing_buffer - counter_after_work) / (real32)master_timer.COUNTER_FREQUENCY);
 
+#if 1 // Render Present
         { // Present the rendered content (Will block for vsync)
             SDL_RenderPresent(global_renderer);
-            SDL_SetRenderTarget(global_renderer, NULL);
         }
+#endif
 
 #ifdef __WIN32__
         uint64 global_cycle_count_after_render = __rdtsc();
@@ -660,21 +698,28 @@ if (global_debug_counter == 0)
         {  // Sleep if necessary
             if (!VSYNC_ENABLED)
             {
-                real32 total_time_elapsed_for_frame_before_sleep__seconds =
-                    ((real32)(counter_after_render - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
-                real32 sleep_time_s = TARGET_TIME_PER_FRAME_S - total_time_elapsed_for_frame_before_sleep__seconds;
+                uint64 MICRO = 1000000;
+                const Uint64 TARGET_FRAME_DURATION = MICRO / TARGET_SCREEN_FPS;  // In microseconds
+                int64 target_duration_ticks =
+                    (TARGET_FRAME_DURATION * master_timer.COUNTER_FREQUENCY) / MICRO;  // Convert to ticks
+                Uint64 elapsed_ticks = counter_after_render - counter_now;
 
-                if (sleep_time_s > 0)
+                if (elapsed_ticks < target_duration_ticks)
                 {
-                    real32 sleep_time_ms = sleep_time_s * 1000.0f;
-                    // printf("Sleep ms: %.2f\n", sleep_time_ms);
+                    Uint64 remaining_ticks = target_duration_ticks - elapsed_ticks;
+                    Uint64 remaining_microseconds = MICRO * (remaining_ticks / master_timer.COUNTER_FREQUENCY);
 
-                    // Round sleep time up
-                    SDL_Delay((uint32)(sleep_time_ms + 0.5f));
-                }
-                else
-                {
-                    // TODO: logging when we miss a frame?
+                    // Use SDL_Delay for most of the remaining time if it's large enough
+                    if (remaining_microseconds > 1000)
+                    {
+                        SDL_Delay(remaining_microseconds / 1000);  // Delay in milliseconds
+                    }
+
+                    // Spin-wait for the remaining time (microsecond precision)
+                    while (SDL_GetPerformanceCounter() - counter_now < target_duration_ticks)
+                    {
+                        // Busy-wait for precise timing
+                    }
                 }
             }
         }

@@ -27,7 +27,8 @@ TODO
     / The snake can grow another square behind it
     / The snake grows another square behind it when it hits the blip
     / Blips can be eaten which then triggers the next one to spawn randomly
-    ? Track length as score
+    / Track length as score
+    ? Optimize text rendering
     ? Colliding with wall or self restarts the game
     ? Add 'grace period' when colliding with wall or self
         - The user should have a chance of like 1 second or so where they can turn to save themselves
