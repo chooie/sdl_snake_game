@@ -94,7 +94,8 @@ void render_text_with_scaling(const char* text,
 
     SDL_RenderCopy(global_renderer, texture, NULL, return_rect);
 
-    // Cleanup
+    // Cleanup (This seems to block for Vsync)
+    // TODO: figure out another implementation that doesn't involve this blocking
     SDL_DestroyTexture(texture);
 }
 
@@ -118,7 +119,7 @@ map_world_space_position_to_screen_space_position(real32 world_x, real32 world_y
     Screen_Space_Position result = {};
     real32 actual_x = world_x * GRID_BLOCK_SIZE;
     // Flip Y so positive y is up and negative y is down
-    real32 actual_y = LOGICAL_HEIGHT - (world_y * GRID_BLOCK_SIZE);
+    real32 actual_y = LOGICAL_HEIGHT - ((world_y + 1) * GRID_BLOCK_SIZE);
 
     // printf("x: %.2f, y: %.2f\n", actual_x, actual_y);
 

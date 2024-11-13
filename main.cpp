@@ -11,8 +11,8 @@
 #endif
 // clang-format on
 
-bool32 TEXT_DEBUGGING_ENABLED = 0;
-bool32 VSYNC_ENABLED = 0;
+bool32 TEXT_DEBUGGING_ENABLED = 1;
+bool32 VSYNC_ENABLED = 1;
 real32 TARGET_SCREEN_FPS = 58.9f;
 
 struct Button_State
@@ -214,7 +214,8 @@ int32 main(int32 argc, char* argv[])
 
     // TODO: move me
     int32 last_painted_snake_score = 0;
-    SDL_Texture* cached_snake_score_texture;
+    SDL_Texture* cached_snake_score_text_texture;
+    SDL_Texture* cached_snake_score_number_texture;
     bool32 is_first_run = 1;
 
 #ifdef __WIN32__
@@ -360,52 +361,73 @@ int32 main(int32 argc, char* argv[])
                 SDL_Color score_text_color = {255, 255, 255, 255};  // White color
                 uint32 padding = LOGICAL_WIDTH * 0.01f;
                 real32 start_x = LOGICAL_WIDTH * 0.75f;
-                SDL_Rect static_score_text_rect = {};
                 real32 font_size = 16.0f;
+
+#if 0
                 render_text_with_scaling("SCORE",
                                          start_x - padding, // X
                                          0, // Y
                                          16.0f,
                                          score_text_color,
                                          &static_score_text_rect);
+#endif
+                int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
+                TTF_Font* font = get_font(pt_size);
+
+                char static_score_text[] = "Score";
+
+                if (is_first_run)
+                {
+                    if (cached_snake_score_text_texture) {
+                        // Cleanup
+                        SDL_DestroyTexture(cached_snake_score_text_texture);
+                    }
+
+                    SDL_Surface* surface = TTF_RenderText_Blended(font, static_score_text, score_text_color);
+                    cached_snake_score_text_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+                    // Pass-through the color's alpha channel to control opacity
+                    SDL_SetTextureAlphaMod(cached_snake_score_text_texture, score_text_color.a);
+                    SDL_FreeSurface(surface);
+                }
+
+                SDL_Rect static_score_text_rect = {};
+                static_score_text_rect.x = start_x - padding; // X
+                static_score_text_rect.y = 0; // Y
+                SDL_QueryTexture(cached_snake_score_text_texture, NULL, NULL, &static_score_text_rect.w, &static_score_text_rect.h);
+
+                static_score_text_rect.w /= global_text_dpi_scale_factor;
+                static_score_text_rect.h /= global_text_dpi_scale_factor;
+
+                SDL_RenderCopy(global_renderer, cached_snake_score_text_texture, NULL, &static_score_text_rect);
+
+                // ==========================
 
                 SDL_Rect dynamic_score_text_rect = {};
                 char score_text[5]; // Make sure the buffer is large enough
                 snprintf(score_text, 5, "%d", state.next_snake_part_index);
-#if 0
-                render_text_with_scaling(score_text,
-                                         start_x + static_score_text_rect.w + (10) - padding, // X
-                                         0, // Y
-                                         font_size,
-                                         score_text_color,
-                                         &dynamic_score_text_rect);
-#endif
-
-                int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
-                TTF_Font* font = get_font(pt_size);
 
                 if (is_first_run || last_painted_snake_score != state.next_snake_part_index)
                 {
-                    if (cached_snake_score_texture) {
+                    if (cached_snake_score_number_texture) {
                         // Cleanup
-                        SDL_DestroyTexture(cached_snake_score_texture);
+                        SDL_DestroyTexture(cached_snake_score_number_texture);
                     }
 
                     SDL_Surface* surface = TTF_RenderText_Blended(font, score_text, score_text_color);
-                    cached_snake_score_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+                    cached_snake_score_number_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
                     // Pass-through the color's alpha channel to control opacity
-                    SDL_SetTextureAlphaMod(cached_snake_score_texture, score_text_color.a);
+                    SDL_SetTextureAlphaMod(cached_snake_score_number_texture, score_text_color.a);
                     SDL_FreeSurface(surface);
                 }
 
                 dynamic_score_text_rect.x = start_x + static_score_text_rect.w + (10) - padding; // X
                 dynamic_score_text_rect.y = 0; // Y
-                SDL_QueryTexture(cached_snake_score_texture, NULL, NULL, &dynamic_score_text_rect.w, &dynamic_score_text_rect.h);
+                SDL_QueryTexture(cached_snake_score_number_texture, NULL, NULL, &dynamic_score_text_rect.w, &dynamic_score_text_rect.h);
 
                 dynamic_score_text_rect.w /= global_text_dpi_scale_factor;
                 dynamic_score_text_rect.h /= global_text_dpi_scale_factor;
 
-                SDL_RenderCopy(global_renderer, cached_snake_score_texture, NULL, &dynamic_score_text_rect);
+                SDL_RenderCopy(global_renderer, cached_snake_score_number_texture, NULL, &dynamic_score_text_rect);
             }
 #endif
 #endif
@@ -474,6 +496,11 @@ int32 main(int32 argc, char* argv[])
 
                 if (global_debug_counter == 0) {
                     printf("\n");
+                }
+
+                if (global_debug_counter == 0)
+                {
+                    printf("X Grids: %d, Y Grids: %d, X: %d, Y: %d\n", X_GRIDS, Y_GRIDS, state.blip_pos_x, state.blip_pos_y);
                 }
             }
 
@@ -715,35 +742,33 @@ int32 main(int32 argc, char* argv[])
         Uint64 counter_after_render = SDL_GetPerformanceCounter();
         master_timer.time_elapsed_for_render__seconds =
             ((real32)(counter_after_render - counter_after_writing_buffer) / (real32)master_timer.COUNTER_FREQUENCY);
+#if 1
+        {  // Sleep
+            uint64 MICRO = 1000000;
+            const Uint64 TARGET_FRAME_DURATION = MICRO / TARGET_SCREEN_FPS;  // In microseconds
+            int64 target_duration_ticks =
+                (TARGET_FRAME_DURATION * master_timer.COUNTER_FREQUENCY) / MICRO;  // Convert to ticks
+            Uint64 elapsed_ticks = counter_after_render - counter_now;
 
-        {  // Sleep if necessary
-            if (!VSYNC_ENABLED)
+            if (elapsed_ticks < target_duration_ticks)
             {
-                uint64 MICRO = 1000000;
-                const Uint64 TARGET_FRAME_DURATION = MICRO / TARGET_SCREEN_FPS;  // In microseconds
-                int64 target_duration_ticks =
-                    (TARGET_FRAME_DURATION * master_timer.COUNTER_FREQUENCY) / MICRO;  // Convert to ticks
-                Uint64 elapsed_ticks = counter_after_render - counter_now;
+                Uint64 remaining_ticks = target_duration_ticks - elapsed_ticks;
+                Uint64 remaining_microseconds = MICRO * (remaining_ticks / master_timer.COUNTER_FREQUENCY);
 
-                if (elapsed_ticks < target_duration_ticks)
+                // Use SDL_Delay for most of the remaining time if it's large enough
+                if (remaining_microseconds > 1000)
                 {
-                    Uint64 remaining_ticks = target_duration_ticks - elapsed_ticks;
-                    Uint64 remaining_microseconds = MICRO * (remaining_ticks / master_timer.COUNTER_FREQUENCY);
+                    SDL_Delay(remaining_microseconds / 1000);  // Delay in milliseconds
+                }
 
-                    // Use SDL_Delay for most of the remaining time if it's large enough
-                    if (remaining_microseconds > 1000)
-                    {
-                        SDL_Delay(remaining_microseconds / 1000);  // Delay in milliseconds
-                    }
-
-                    // Spin-wait for the remaining time (microsecond precision)
-                    while (SDL_GetPerformanceCounter() - counter_now < target_duration_ticks)
-                    {
-                        // Busy-wait for precise timing
-                    }
+                // Spin-wait for the remaining time (microsecond precision)
+                while (SDL_GetPerformanceCounter() - counter_now < target_duration_ticks)
+                {
+                    // Busy-wait for precise timing
                 }
             }
         }
+#endif
 
 #ifdef __WIN32__
         uint64 global_end_cycle_count_after_delay = __rdtsc();
@@ -767,6 +792,7 @@ int32 main(int32 argc, char* argv[])
     }
 
     cleanup_fonts();
+    SDL_DestroyTexture(cached_snake_score_number_texture);
     SDL_DestroyRenderer(global_renderer);
     SDL_DestroyWindow(global_window);
     TTF_Quit();
