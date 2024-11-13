@@ -127,6 +127,78 @@ map_world_space_position_to_screen_space_position(real32 world_x, real32 world_y
     return result;
 }
 
+SDL_Texture* grid_texture = NULL;
+int grid_texture_initialized = 0;
+
+// Function to draw the grid onto a texture for caching
+void create_grid_texture(SDL_Renderer* renderer)
+{
+    uint32 border_thickness = 1;                // Thickness of the white border
+    SDL_Color grey_color = {40, 40, 40, 255};   // Dark grey color
+    SDL_Color white_color = {60, 60, 60, 255};  // Lighter color for borders
+
+    // Calculate the grid texture size
+    int grid_width = X_GRIDS * GRID_BLOCK_SIZE;
+    int grid_height = Y_GRIDS * GRID_BLOCK_SIZE;
+
+    // Create the texture
+    grid_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, grid_width, grid_height);
+    if (!grid_texture)
+    {
+        fprintf(stderr, "Failed to create grid texture: %s\n", SDL_GetError());
+        return;
+    }
+
+    // Set the grid texture as the render target
+    SDL_SetRenderTarget(renderer, grid_texture);
+
+    // Draw the grid
+    for (uint32 row_index = 0; row_index < Y_GRIDS; row_index++)
+    {
+        for (uint32 column_index = 0; column_index < X_GRIDS; column_index++)
+        {
+            SDL_Rect grid_block;
+            grid_block.x = (int32)(column_index * GRID_BLOCK_SIZE);
+            grid_block.y = (int32)(row_index * GRID_BLOCK_SIZE);
+            grid_block.w = (int32)(GRID_BLOCK_SIZE);
+            grid_block.h = (int32)(GRID_BLOCK_SIZE);
+
+            // Draw the white border rectangle
+            SDL_SetRenderDrawColor(renderer, white_color.r, white_color.g, white_color.b, white_color.a);
+            SDL_RenderFillRect(renderer, &grid_block);
+
+            // Shrink the grey rectangle by the border thickness to draw it inside the border
+            SDL_Rect inner_block;
+            inner_block.x = (int32)(grid_block.x + border_thickness);
+            inner_block.y = (int32)(grid_block.y + border_thickness);
+            inner_block.w = (int32)(grid_block.w - (2 * border_thickness));
+            inner_block.h = (int32)(grid_block.h - (2 * border_thickness));
+
+            // Draw the dark grey fill within the border
+            SDL_SetRenderDrawColor(renderer, grey_color.r, grey_color.g, grey_color.b, grey_color.a);
+            SDL_RenderFillRect(renderer, &inner_block);
+        }
+    }
+
+    // Reset the rendering target to the default (screen)
+    SDL_SetRenderTarget(renderer, NULL);
+
+    grid_texture_initialized = 1;
+}
+
+// Function to render the grid by reusing the cached texture
+void render_grid(SDL_Renderer* renderer)
+{
+    // Create the grid texture if it hasn't been created yet
+    if (!grid_texture_initialized)
+    {
+        create_grid_texture(renderer);
+    }
+
+    // Render the cached grid texture to the screen
+    SDL_RenderCopy(renderer, grid_texture, NULL, NULL);
+}
+
 void render(State* state)
 {
     // NOTE: We need this to distinguish the 'usable canvas' from the black dead-space (due to differing aspect ratios)
@@ -143,39 +215,7 @@ void render(State* state)
     SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
     SDL_RenderFillRect(global_renderer, &drawable_canvas);
 
-#if 1
-    // TODO: This is really slow
-    {  // Draw Grid
-        uint32 border_thickness = 1;                // Thickness of the white border
-        SDL_Color grey_color = {40, 40, 40, 255};   // Dark grey color
-        SDL_Color white_color = {60, 60, 60, 255};  // Lighter color for borders
-
-        for (uint32 row_index = 0; row_index < Y_GRIDS; row_index++)
-        {
-            for (uint32 column_index = 0; column_index < X_GRIDS; column_index++)
-            {
-                SDL_Rect grid_block = {};
-                grid_block.x = (int32)(column_index * GRID_BLOCK_SIZE);
-                grid_block.y = (int32)(row_index * GRID_BLOCK_SIZE);
-                grid_block.w = (int32)(GRID_BLOCK_SIZE);
-                grid_block.h = (int32)(GRID_BLOCK_SIZE);
-
-                // Draw the white border rectangle
-                draw_rect(grid_block, white_color);
-
-                // Shrink the grey rectangle by the border thickness to draw it inside the border
-                SDL_Rect inner_block;
-                inner_block.x = (int32)(grid_block.x + border_thickness);
-                inner_block.y = (int32)(grid_block.y + border_thickness);
-                inner_block.w = (int32)(grid_block.w - (2 * border_thickness));
-                inner_block.h = (int32)(grid_block.h - (2 * border_thickness));
-
-                // Draw the dark grey fill within the border
-                draw_rect(inner_block, grey_color);
-            }
-        }
-    }
-#endif
+    render_grid(global_renderer);
 
     { // Draw Blip
         Screen_Space_Position square_screen_pos =

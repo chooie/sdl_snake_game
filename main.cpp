@@ -11,7 +11,7 @@
 #endif
 // clang-format on
 
-bool32 TEXT_DEBUGGING_ENABLED = 1;
+bool32 TEXT_DEBUGGING_ENABLED = 0;
 bool32 VSYNC_ENABLED = 0;
 real32 TARGET_SCREEN_FPS = 58.9f;
 
@@ -212,6 +212,11 @@ int32 main(int32 argc, char* argv[])
     State previous_state = starting_state;
     State current_state = starting_state;
 
+    // TODO: move me
+    int32 last_painted_snake_score = 0;
+    SDL_Texture* cached_snake_score_texture;
+    bool32 is_first_run = 1;
+
 #ifdef __WIN32__
     // This looks like a function call but it's actually an intrinsic that
     // runs the actual assembly instruction directly
@@ -356,6 +361,7 @@ int32 main(int32 argc, char* argv[])
                 uint32 padding = LOGICAL_WIDTH * 0.01f;
                 real32 start_x = LOGICAL_WIDTH * 0.75f;
                 SDL_Rect static_score_text_rect = {};
+                real32 font_size = 16.0f;
                 render_text_with_scaling("SCORE",
                                          start_x - padding, // X
                                          0, // Y
@@ -366,12 +372,40 @@ int32 main(int32 argc, char* argv[])
                 SDL_Rect dynamic_score_text_rect = {};
                 char score_text[5]; // Make sure the buffer is large enough
                 snprintf(score_text, 5, "%d", state.next_snake_part_index);
+#if 0
                 render_text_with_scaling(score_text,
                                          start_x + static_score_text_rect.w + (10) - padding, // X
                                          0, // Y
-                                         16.0f,
+                                         font_size,
                                          score_text_color,
                                          &dynamic_score_text_rect);
+#endif
+
+                int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
+                TTF_Font* font = get_font(pt_size);
+
+                if (is_first_run || last_painted_snake_score != state.next_snake_part_index)
+                {
+                    if (cached_snake_score_texture) {
+                        // Cleanup
+                        SDL_DestroyTexture(cached_snake_score_texture);
+                    }
+
+                    SDL_Surface* surface = TTF_RenderText_Blended(font, score_text, score_text_color);
+                    cached_snake_score_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+                    // Pass-through the color's alpha channel to control opacity
+                    SDL_SetTextureAlphaMod(cached_snake_score_texture, score_text_color.a);
+                    SDL_FreeSurface(surface);
+                }
+
+                dynamic_score_text_rect.x = start_x + static_score_text_rect.w + (10) - padding; // X
+                dynamic_score_text_rect.y = 0; // Y
+                SDL_QueryTexture(cached_snake_score_texture, NULL, NULL, &dynamic_score_text_rect.w, &dynamic_score_text_rect.h);
+
+                dynamic_score_text_rect.w /= global_text_dpi_scale_factor;
+                dynamic_score_text_rect.h /= global_text_dpi_scale_factor;
+
+                SDL_RenderCopy(global_renderer, cached_snake_score_texture, NULL, &dynamic_score_text_rect);
             }
 #endif
 #endif
@@ -728,6 +762,8 @@ int32 main(int32 argc, char* argv[])
 #ifdef __WIN32__
         global_last_cycle_count = global_end_cycle_count_after_delay;
 #endif
+
+        is_first_run = 0;
     }
 
     cleanup_fonts();
