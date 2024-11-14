@@ -133,6 +133,11 @@ struct Drawn_Text
     SDL_Texture* cached_texture;
 };
 
+int32 get_font_pt_size(real32 font_size)
+{
+    return (int32)(0.5f + font_size * global_text_dpi_scale_factor);
+}
+
 void draw_text_real32(Drawn_Text* drawn_text, bool32 is_first_run, real32 current_value)
 {
     if (is_first_run || current_value != drawn_text->original_value)
@@ -146,7 +151,7 @@ void draw_text_real32(Drawn_Text* drawn_text, bool32 is_first_run, real32 curren
         }
 
         SDL_assert(drawn_text->font_size > 0);
-        int32 pt_size = (int32)(0.5f + drawn_text->font_size * global_text_dpi_scale_factor);
+        int32 pt_size = get_font_pt_size(drawn_text->font_size);
         TTF_Font* font = get_font(pt_size);
         SDL_Surface* surface = TTF_RenderText_Blended(font, drawn_text->text_string, drawn_text->color);
         drawn_text->cached_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
@@ -273,12 +278,26 @@ int32 main(int32 argc, char* argv[])
 
     SDL_Color debug_text_color = { 255, 255, 255, 255 }; // White color
     real32 debug_font_size = 16.0f;
-    real32 debug_x = (int32)(LOGICAL_WIDTH * 0.01f);
+    real32 debug_x_start_offset = (int32)(LOGICAL_WIDTH * 0.01f);
+    real32 debug_y_start_offset = (int32)(LOGICAL_HEIGHT * 0.01f);
+    real32 debug_padding = 5.0f;
+
+    real32 font_pt_size = get_font_pt_size(debug_font_size);
+    TTF_Font* font = get_font(font_pt_size);
+    real32 font_height = TTF_FontHeight(font) / global_text_dpi_scale_factor;
+
+    real32 vertical_offset = font_height + debug_padding;
+    real32 y_offset = 0;
 
     char fps_text[100] = "";
-    real32 last_painted_fps_value;
-    SDL_Rect fps_text_rect = {};
-    SDL_Texture* cached_fps_debug_text_texture;
+    Drawn_Text fps_drawn_text = {};
+    fps_drawn_text.original_value = 0.f;
+    fps_drawn_text.text_string = fps_text;
+    fps_drawn_text.font_size = debug_font_size;
+    fps_drawn_text.color = debug_text_color;
+    fps_drawn_text.text_rect.x = debug_x_start_offset;
+    fps_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
+    y_offset += vertical_offset;
 
     char ms_per_frame_text[100] = "";
     Drawn_Text ms_per_frame_drawn_text = {};
@@ -286,7 +305,9 @@ int32 main(int32 argc, char* argv[])
     ms_per_frame_drawn_text.text_string = ms_per_frame_text;
     ms_per_frame_drawn_text.font_size = debug_font_size;
     ms_per_frame_drawn_text.color = debug_text_color;
-    ms_per_frame_drawn_text.text_rect.x = debug_x;
+    ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
+    ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
+    y_offset += vertical_offset;
 
     char work_ms_per_frame_text[100] = "";
     Drawn_Text work_ms_per_frame_drawn_text = {};
@@ -294,11 +315,39 @@ int32 main(int32 argc, char* argv[])
     work_ms_per_frame_drawn_text.text_string = work_ms_per_frame_text;
     work_ms_per_frame_drawn_text.font_size = debug_font_size;
     work_ms_per_frame_drawn_text.color = debug_text_color;
-    work_ms_per_frame_drawn_text.text_rect.x = debug_x;
+    work_ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
+    work_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
+    y_offset += vertical_offset;
 
     char writing_buffer_ms_per_frame_text[100] = "";
+    Drawn_Text writing_buffer_ms_per_frame_drawn_text = {};
+    writing_buffer_ms_per_frame_drawn_text.original_value = 0.f;
+    writing_buffer_ms_per_frame_drawn_text.text_string = writing_buffer_ms_per_frame_text;
+    writing_buffer_ms_per_frame_drawn_text.font_size = debug_font_size;
+    writing_buffer_ms_per_frame_drawn_text.color = debug_text_color;
+    writing_buffer_ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
+    writing_buffer_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
+    y_offset += vertical_offset;
+
     char render_ms_per_frame_text[100] = "";
+    Drawn_Text render_ms_per_frame_drawn_text = {};
+    render_ms_per_frame_drawn_text.original_value = 0.f;
+    render_ms_per_frame_drawn_text.text_string = render_ms_per_frame_text;
+    render_ms_per_frame_drawn_text.font_size = debug_font_size;
+    render_ms_per_frame_drawn_text.color = debug_text_color;
+    render_ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
+    render_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
+    y_offset += vertical_offset;
+
     char sleep_ms_per_frame_text[100] = "";
+    Drawn_Text sleep_ms_per_frame_drawn_text = {};
+    sleep_ms_per_frame_drawn_text.original_value = 0.f;
+    sleep_ms_per_frame_drawn_text.text_string = sleep_ms_per_frame_text;
+    sleep_ms_per_frame_drawn_text.font_size = debug_font_size;
+    sleep_ms_per_frame_drawn_text.color = debug_text_color;
+    sleep_ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
+    sleep_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
+    y_offset += vertical_offset;
 
     SDL_RenderSetVSync(global_renderer, VSYNC_ENABLED);
 
@@ -574,6 +623,7 @@ int32 main(int32 argc, char* argv[])
 #if 1 // Render Debug Info
             if (global_display_debug_info)  // Render Debug Info
             {
+                // TODO: remove this when changing the win32 stuff
                 SDL_Color debug_text_color = {255, 255, 255, 255};  // White color
                 real32 font_size = 16.0f;
                 int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
@@ -646,50 +696,7 @@ int32 main(int32 argc, char* argv[])
                         snprintf(fps_text, sizeof(fps_text), "FPS: %.02f", fps);
                     }
 
-#if 0
-                    SDL_Rect rect;
-                    render_text_with_scaling(fps_text,
-                                             (int32)(LOGICAL_WIDTH * 0.01f),
-                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                             font_size,
-                                             debug_text_color,
-                                             &rect);
-#endif
-
-                    if (is_first_run || last_painted_fps_value != fps)
-                    {
-                        last_painted_fps_value = fps;
-
-                        if (cached_fps_debug_text_texture) {
-                            // Cleanup
-                            SDL_DestroyTexture(cached_fps_debug_text_texture);
-                        }
-
-                        TTF_Font* font = get_font(pt_size);
-                        SDL_Surface* surface = TTF_RenderText_Blended(font, fps_text, debug_text_color);
-                        cached_fps_debug_text_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
-                        // Pass-through the color's alpha channel to control opacity
-                        SDL_SetTextureAlphaMod(cached_fps_debug_text_texture, debug_text_color.a);
-                        SDL_FreeSurface(surface);
-
-                        fps_text_rect.x = (int32)(LOGICAL_WIDTH * 0.01f);
-                        fps_text_rect.y = (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f);
-                        SDL_QueryTexture(cached_fps_debug_text_texture, NULL, NULL, &fps_text_rect.w, &fps_text_rect.h);
-
-                        fps_text_rect.w /= global_text_dpi_scale_factor;
-                        fps_text_rect.h /= global_text_dpi_scale_factor;
-
-                    }
-
-                    SDL_RenderCopy(global_renderer, cached_fps_debug_text_texture, NULL, &fps_text_rect);
-
-                    //==========================================
-
-                    // TODO: better way of calculating height for offsets
-                    // TODO: do this offset for the windows-specific debug info (above)
-                    font_height = fps_text_rect.h;
-                    vertical_offset = font_height + padding;
-                    y_offset += vertical_offset;
+                    draw_text_real32(&fps_drawn_text, is_first_run, fps);
                 }
 
                 real32 ms_per_frame = total_LAST_frame_time_elapsed__seconds * 1000.0f;
@@ -704,9 +711,7 @@ int32 main(int32 argc, char* argv[])
                                  TARGET_TIME_PER_FRAME_MS);
                     }
 
-                    ms_per_frame_drawn_text.text_rect.y = (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f);
                     draw_text_real32(&ms_per_frame_drawn_text, is_first_run, ms_per_frame);
-                    y_offset += vertical_offset;
                 }
 
                 {  // Work Frame Time (MS)
@@ -721,9 +726,7 @@ int32 main(int32 argc, char* argv[])
                                  (work_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    work_ms_per_frame_drawn_text.text_rect.y = (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f);
                     draw_text_real32(&work_ms_per_frame_drawn_text, is_first_run, work_ms_per_frame);
-                    y_offset += vertical_offset;
                 }
 
                 {  // Buffer Writing Time (MS)
@@ -738,12 +741,7 @@ int32 main(int32 argc, char* argv[])
                                  (writing_buffer_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    render_text_with_scaling(writing_buffer_ms_per_frame_text,
-                                             (int32)(LOGICAL_WIDTH * 0.01f),
-                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                             font_size,
-                                             debug_text_color);
-                    y_offset += vertical_offset;
+                    draw_text_real32(&writing_buffer_ms_per_frame_drawn_text, is_first_run, writing_buffer_ms_per_frame);
                 }
 
                 {  // Render Frame Time (MS)
@@ -758,12 +756,7 @@ int32 main(int32 argc, char* argv[])
                                  (render_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    render_text_with_scaling(render_ms_per_frame_text,
-                                             (int32)(LOGICAL_WIDTH * 0.01f),
-                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                             font_size,
-                                             debug_text_color);
-                    y_offset += vertical_offset;
+                    draw_text_real32(&render_ms_per_frame_drawn_text, is_first_run, render_ms_per_frame);
                 }
 
                 {  // Sleep Frame Time (MS)
@@ -778,12 +771,7 @@ int32 main(int32 argc, char* argv[])
                                  (sleep_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    render_text_with_scaling(sleep_ms_per_frame_text,
-                                             (int32)(LOGICAL_WIDTH * 0.01f),
-                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                             font_size,
-                                             debug_text_color);
-                    y_offset += vertical_offset;
+                    draw_text_real32(&sleep_ms_per_frame_drawn_text, is_first_run, sleep_ms_per_frame);
                 }
             }
 #endif
