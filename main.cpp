@@ -123,6 +123,46 @@ int32 filterEvent(void* userdata, SDL_Event* event)
     return 1;  // Allow other events
 }
 
+struct Drawn_Text
+{
+    char* text_string;
+    real32 original_value;
+    real32 font_size;
+    SDL_Color color;
+    SDL_Rect text_rect;
+    SDL_Texture* cached_texture;
+};
+
+void draw_text_real32(Drawn_Text* drawn_text, bool32 is_first_run, real32 current_value)
+{
+    if (is_first_run || current_value != drawn_text->original_value)
+    {
+        drawn_text->original_value = current_value;
+
+        if (drawn_text->cached_texture) {
+            // Cleanup
+            SDL_DestroyTexture(drawn_text->cached_texture);
+            drawn_text->cached_texture = 0;
+        }
+
+        SDL_assert(drawn_text->font_size > 0);
+        int32 pt_size = (int32)(0.5f + drawn_text->font_size * global_text_dpi_scale_factor);
+        TTF_Font* font = get_font(pt_size);
+        SDL_Surface* surface = TTF_RenderText_Blended(font, drawn_text->text_string, drawn_text->color);
+        drawn_text->cached_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+        // Pass-through the color's alpha channel to control opacity
+        SDL_SetTextureAlphaMod(drawn_text->cached_texture, drawn_text->color.a);
+        SDL_FreeSurface(surface);
+
+        SDL_QueryTexture(drawn_text->cached_texture, NULL, NULL, &drawn_text->text_rect.w, &drawn_text->text_rect.h);
+
+        drawn_text->text_rect.w /= global_text_dpi_scale_factor;
+        drawn_text->text_rect.h /= global_text_dpi_scale_factor;
+    }
+
+    SDL_RenderCopy(global_renderer, drawn_text->cached_texture, NULL, &drawn_text->text_rect);
+}
+
 int32 main(int32 argc, char* argv[])
 {
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -212,11 +252,12 @@ int32 main(int32 argc, char* argv[])
     State previous_state = starting_state;
     State current_state = starting_state;
 
+    bool32 is_first_run = 1;
+
     // TODO: move me
     int32 last_painted_snake_score = 0;
     SDL_Texture* cached_snake_score_text_texture;
     SDL_Texture* cached_snake_score_number_texture;
-    bool32 is_first_run = 1;
 
 #ifdef __WIN32__
     // This looks like a function call but it's actually an intrinsic that
@@ -230,9 +271,31 @@ int32 main(int32 argc, char* argv[])
     char render_mega_cycles_text[100] = "";
 #endif
 
+    SDL_Color debug_text_color = { 255, 255, 255, 255 }; // White color
+    real32 debug_font_size = 16.0f;
+    real32 debug_x = (int32)(LOGICAL_WIDTH * 0.01f);
+
     char fps_text[100] = "";
+    real32 last_painted_fps_value;
+    SDL_Rect fps_text_rect = {};
+    SDL_Texture* cached_fps_debug_text_texture;
+
     char ms_per_frame_text[100] = "";
+    Drawn_Text ms_per_frame_drawn_text = {};
+    ms_per_frame_drawn_text.original_value = 0.f;
+    ms_per_frame_drawn_text.text_string = ms_per_frame_text;
+    ms_per_frame_drawn_text.font_size = debug_font_size;
+    ms_per_frame_drawn_text.color = debug_text_color;
+    ms_per_frame_drawn_text.text_rect.x = debug_x;
+
     char work_ms_per_frame_text[100] = "";
+    Drawn_Text work_ms_per_frame_drawn_text = {};
+    work_ms_per_frame_drawn_text.original_value = 0.f;
+    work_ms_per_frame_drawn_text.text_string = work_ms_per_frame_text;
+    work_ms_per_frame_drawn_text.font_size = debug_font_size;
+    work_ms_per_frame_drawn_text.color = debug_text_color;
+    work_ms_per_frame_drawn_text.text_rect.x = debug_x;
+
     char writing_buffer_ms_per_frame_text[100] = "";
     char render_ms_per_frame_text[100] = "";
     char sleep_ms_per_frame_text[100] = "";
@@ -408,6 +471,8 @@ int32 main(int32 argc, char* argv[])
 
                 if (is_first_run || last_painted_snake_score != state.next_snake_part_index)
                 {
+                    last_painted_snake_score = state.next_snake_part_index;
+
                     if (cached_snake_score_number_texture) {
                         // Cleanup
                         SDL_DestroyTexture(cached_snake_score_number_texture);
@@ -498,10 +563,12 @@ int32 main(int32 argc, char* argv[])
                     printf("\n");
                 }
 
+#if 0
                 if (global_debug_counter == 0)
                 {
                     printf("X Grids: %d, Y Grids: %d, X: %d, Y: %d\n", X_GRIDS, Y_GRIDS, state.blip_pos_x, state.blip_pos_y);
                 }
+#endif
             }
 
 #if 1 // Render Debug Info
@@ -509,6 +576,7 @@ int32 main(int32 argc, char* argv[])
             {
                 SDL_Color debug_text_color = {255, 255, 255, 255};  // White color
                 real32 font_size = 16.0f;
+                int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
                 real32 y_offset = 0;
                 real32 padding = 5.0f;
                 real32 font_height;
@@ -578,6 +646,7 @@ int32 main(int32 argc, char* argv[])
                         snprintf(fps_text, sizeof(fps_text), "FPS: %.02f", fps);
                     }
 
+#if 0
                     SDL_Rect rect;
                     render_text_with_scaling(fps_text,
                                              (int32)(LOGICAL_WIDTH * 0.01f),
@@ -585,17 +654,47 @@ int32 main(int32 argc, char* argv[])
                                              font_size,
                                              debug_text_color,
                                              &rect);
+#endif
+
+                    if (is_first_run || last_painted_fps_value != fps)
+                    {
+                        last_painted_fps_value = fps;
+
+                        if (cached_fps_debug_text_texture) {
+                            // Cleanup
+                            SDL_DestroyTexture(cached_fps_debug_text_texture);
+                        }
+
+                        TTF_Font* font = get_font(pt_size);
+                        SDL_Surface* surface = TTF_RenderText_Blended(font, fps_text, debug_text_color);
+                        cached_fps_debug_text_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+                        // Pass-through the color's alpha channel to control opacity
+                        SDL_SetTextureAlphaMod(cached_fps_debug_text_texture, debug_text_color.a);
+                        SDL_FreeSurface(surface);
+
+                        fps_text_rect.x = (int32)(LOGICAL_WIDTH * 0.01f);
+                        fps_text_rect.y = (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f);
+                        SDL_QueryTexture(cached_fps_debug_text_texture, NULL, NULL, &fps_text_rect.w, &fps_text_rect.h);
+
+                        fps_text_rect.w /= global_text_dpi_scale_factor;
+                        fps_text_rect.h /= global_text_dpi_scale_factor;
+
+                    }
+
+                    SDL_RenderCopy(global_renderer, cached_fps_debug_text_texture, NULL, &fps_text_rect);
+
+                    //==========================================
 
                     // TODO: better way of calculating height for offsets
                     // TODO: do this offset for the windows-specific debug info (above)
-                    font_height = rect.h;
+                    font_height = fps_text_rect.h;
                     vertical_offset = font_height + padding;
                     y_offset += vertical_offset;
                 }
 
                 real32 ms_per_frame = total_LAST_frame_time_elapsed__seconds * 1000.0f;
 
-                {  // Total Frame Time (MS)
+                { // Total Frame Time (MS)
                     if (global_debug_counter == 0)
                     {
                         snprintf(ms_per_frame_text,
@@ -605,11 +704,8 @@ int32 main(int32 argc, char* argv[])
                                  TARGET_TIME_PER_FRAME_MS);
                     }
 
-                    render_text_with_scaling(ms_per_frame_text,
-                                             (int32)(LOGICAL_WIDTH * 0.01f),
-                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                             font_size,
-                                             debug_text_color);
+                    ms_per_frame_drawn_text.text_rect.y = (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f);
+                    draw_text_real32(&ms_per_frame_drawn_text, is_first_run, ms_per_frame);
                     y_offset += vertical_offset;
                 }
 
@@ -625,11 +721,8 @@ int32 main(int32 argc, char* argv[])
                                  (work_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    render_text_with_scaling(work_ms_per_frame_text,
-                                             (int32)(LOGICAL_WIDTH * 0.01f),
-                                             (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f),
-                                             font_size,
-                                             debug_text_color);
+                    work_ms_per_frame_drawn_text.text_rect.y = (int32)y_offset + (int32)(LOGICAL_HEIGHT * 0.01f);
+                    draw_text_real32(&work_ms_per_frame_drawn_text, is_first_run, work_ms_per_frame);
                     y_offset += vertical_offset;
                 }
 
