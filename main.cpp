@@ -224,8 +224,13 @@ int32 main(int32 argc, char* argv[])
     }
     score_drawn_text_static.font_size = font_size;
     score_drawn_text_static.color = white_text_color;
-    score_drawn_text_static.text_rect.x = LOGICAL_WIDTH / 2;
-    score_drawn_text_static.text_rect.y = LOGICAL_HEIGHT / 2;
+
+    char dynamic_score_text[5]; // Make sure the buffer is large enough
+    Drawn_Text_Int32 score_drawn_text_dynamic = {};
+    score_drawn_text_dynamic.original_value = 0;
+    score_drawn_text_dynamic.text_string = dynamic_score_text;
+    score_drawn_text_dynamic.font_size = font_size;
+    score_drawn_text_dynamic.color = white_text_color;
 
 
     real32 debug_x_start_offset = (int32)(LOGICAL_WIDTH * 0.01f);
@@ -423,11 +428,6 @@ int32 main(int32 argc, char* argv[])
             render(&state);
 #if 1
             { // Render score
-                SDL_Color score_text_color = {255, 255, 255, 255};  // White color
-                uint32 padding = LOGICAL_WIDTH * 0.01f;
-                real32 start_x = LOGICAL_WIDTH * 0.75f;
-                real32 font_size = 16.0f;
-
                 int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
                 TTF_Font* font = get_font(pt_size);
 
@@ -439,34 +439,14 @@ int32 main(int32 argc, char* argv[])
 
                 // ==========================
 
-                SDL_Rect dynamic_score_text_rect = {};
-                char score_text[5]; // Make sure the buffer is large enough
-                snprintf(score_text, 5, "%d", state.next_snake_part_index);
-
-                if (is_first_run || last_painted_snake_score != state.next_snake_part_index)
+                if (is_first_run || state.next_snake_part_index != score_drawn_text_dynamic.original_value)
                 {
-                    last_painted_snake_score = state.next_snake_part_index;
-
-                    if (cached_snake_score_number_texture) {
-                        // Cleanup
-                        SDL_DestroyTexture(cached_snake_score_number_texture);
-                    }
-
-                    SDL_Surface* surface = TTF_RenderText_Blended(font, score_text, score_text_color);
-                    cached_snake_score_number_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
-                    // Pass-through the color's alpha channel to control opacity
-                    SDL_SetTextureAlphaMod(cached_snake_score_number_texture, score_text_color.a);
-                    SDL_FreeSurface(surface);
+                    snprintf(dynamic_score_text, 5, "%d", state.next_snake_part_index);
                 }
 
-                dynamic_score_text_rect.x = score_drawn_text_static.text_rect.x + 5 + score_drawn_text_static.text_rect.w;
-                dynamic_score_text_rect.y = 0; // Y
-                SDL_QueryTexture(cached_snake_score_number_texture, NULL, NULL, &dynamic_score_text_rect.w, &dynamic_score_text_rect.h);
-
-                dynamic_score_text_rect.w /= global_text_dpi_scale_factor;
-                dynamic_score_text_rect.h /= global_text_dpi_scale_factor;
-
-                SDL_RenderCopy(global_renderer, cached_snake_score_number_texture, NULL, &dynamic_score_text_rect);
+                score_drawn_text_dynamic.text_rect.x = score_drawn_text_static.text_rect.x + 5 + score_drawn_text_static.text_rect.w;
+                score_drawn_text_dynamic.text_rect.y = 0; 
+                draw_text_int32(&score_drawn_text_dynamic, is_first_run, state.next_snake_part_index);
             }
 #endif
 #endif
