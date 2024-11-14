@@ -69,43 +69,85 @@ void cleanup_fonts()
     global_font_cache_size = 0;
 }
 
-void render_text_with_scaling(const char* text,
-                              int32 x, int32 y,
-                              real32 font_size,
-                              SDL_Color text_color,
-                              SDL_Rect* return_rect)
+struct Drawn_Text
 {
-    int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
-    // printf("%d\n", pt_size);
-    TTF_Font* font = get_font(pt_size);
+    char* text_string;
+    real32 original_value;
+    real32 font_size;
+    SDL_Color color;
+    SDL_Rect text_rect;
+    SDL_Texture* cached_texture;
+};
 
-    SDL_Surface* surface = TTF_RenderText_Blended(font, text, text_color);
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(global_renderer, surface);
-    // Pass-through the color's alpha channel to control opacity
-    SDL_SetTextureAlphaMod(texture, text_color.a);
-    SDL_FreeSurface(surface);
-
-    return_rect->x = x;
-    return_rect->y = y;
-    SDL_QueryTexture(texture, NULL, NULL, &return_rect->w, &return_rect->h);
-
-    return_rect->w /= global_text_dpi_scale_factor;
-    return_rect->h /= global_text_dpi_scale_factor;
-
-    SDL_RenderCopy(global_renderer, texture, NULL, return_rect);
-
-    // Cleanup (This seems to block for Vsync)
-    // TODO: figure out another implementation that doesn't involve this blocking
-    SDL_DestroyTexture(texture);
+int32 get_font_pt_size(real32 font_size)
+{
+    return (int32)(0.5f + font_size * global_text_dpi_scale_factor);
 }
 
-void render_text_with_scaling(const char* text,
-                              int32 x, int32 y,
-                              real32 font_size,
-                              SDL_Color text_color)
+struct Drawn_Text_Static
 {
-    SDL_Rect rect = {};
-    render_text_with_scaling(text, x, y, font_size, text_color, &rect);
+    char* text_string;
+    real32 font_size;
+    SDL_Color color;
+    SDL_Rect text_rect;
+    SDL_Texture* cached_texture;
+};
+void draw_text_static(Drawn_Text_Static* drawn_text, bool32 is_first_run)
+{
+    if (is_first_run)
+    {
+        if (drawn_text->cached_texture) {
+            // Cleanup
+            SDL_DestroyTexture(drawn_text->cached_texture);
+            drawn_text->cached_texture = 0;
+        }
+
+        SDL_assert(drawn_text->font_size > 0);
+        int32 pt_size = get_font_pt_size(drawn_text->font_size);
+        TTF_Font* font = get_font(pt_size);
+        SDL_Surface* surface = TTF_RenderText_Blended(font, drawn_text->text_string, drawn_text->color);
+        drawn_text->cached_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+        // Pass-through the color's alpha channel to control opacity
+        SDL_SetTextureAlphaMod(drawn_text->cached_texture, drawn_text->color.a);
+        SDL_FreeSurface(surface);
+
+        SDL_QueryTexture(drawn_text->cached_texture, NULL, NULL, &drawn_text->text_rect.w, &drawn_text->text_rect.h);
+
+        drawn_text->text_rect.w /= global_text_dpi_scale_factor;
+        drawn_text->text_rect.h /= global_text_dpi_scale_factor;
+    }
+
+    SDL_RenderCopy(global_renderer, drawn_text->cached_texture, NULL, &drawn_text->text_rect);
+}
+
+void draw_text_real32(Drawn_Text* drawn_text, bool32 is_first_run, real32 current_value)
+{
+    if (is_first_run || current_value != drawn_text->original_value)
+    {
+        drawn_text->original_value = current_value;
+
+        if (drawn_text->cached_texture) {
+            // Cleanup
+            SDL_DestroyTexture(drawn_text->cached_texture);
+            drawn_text->cached_texture = 0;
+        }
+
+        SDL_assert(drawn_text->font_size > 0);
+        int32 pt_size = get_font_pt_size(drawn_text->font_size);
+        TTF_Font* font = get_font(pt_size);
+        SDL_Surface* surface = TTF_RenderText_Blended(font, drawn_text->text_string, drawn_text->color);
+        drawn_text->cached_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
+        // Pass-through the color's alpha channel to control opacity
+        SDL_SetTextureAlphaMod(drawn_text->cached_texture, drawn_text->color.a);
+        SDL_FreeSurface(surface);
+
+        SDL_QueryTexture(drawn_text->cached_texture, NULL, NULL, &drawn_text->text_rect.w, &drawn_text->text_rect.h);
+
+        drawn_text->text_rect.w /= global_text_dpi_scale_factor;
+        drawn_text->text_rect.h /= global_text_dpi_scale_factor;
+    }
+
+    SDL_RenderCopy(global_renderer, drawn_text->cached_texture, NULL, &drawn_text->text_rect);
 }
 
 struct Screen_Space_Position {

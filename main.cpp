@@ -15,12 +15,6 @@ bool32 TEXT_DEBUGGING_ENABLED = 1;
 bool32 VSYNC_ENABLED = 1;
 real32 TARGET_SCREEN_FPS = 58.9f;
 
-struct Button_State
-{
-    bool32 is_down;
-    bool32 changed;
-};
-
 int32 LOGICAL_WIDTH = 1280;
 int32 LOGICAL_HEIGHT = 720;
 real32 ABSOLUTE_ASPECT_RATIO = (real32)LOGICAL_WIDTH / (real32)LOGICAL_HEIGHT;
@@ -53,10 +47,6 @@ SDL_Window* global_window;
 SDL_Renderer* global_renderer;
 
 real32 global_text_dpi_scale_factor;
-TTF_Font* global_font;
-SDL_Rect global_text_rect;
-SDL_Surface* global_text_surface;
-SDL_Texture* global_text_texture;
 
 bool32 global_display_debug_info;
 bool32 global_paused;
@@ -123,51 +113,6 @@ int32 filterEvent(void* userdata, SDL_Event* event)
     return 1;  // Allow other events
 }
 
-struct Drawn_Text
-{
-    char* text_string;
-    real32 original_value;
-    real32 font_size;
-    SDL_Color color;
-    SDL_Rect text_rect;
-    SDL_Texture* cached_texture;
-};
-
-int32 get_font_pt_size(real32 font_size)
-{
-    return (int32)(0.5f + font_size * global_text_dpi_scale_factor);
-}
-
-void draw_text_real32(Drawn_Text* drawn_text, bool32 is_first_run, real32 current_value)
-{
-    if (is_first_run || current_value != drawn_text->original_value)
-    {
-        drawn_text->original_value = current_value;
-
-        if (drawn_text->cached_texture) {
-            // Cleanup
-            SDL_DestroyTexture(drawn_text->cached_texture);
-            drawn_text->cached_texture = 0;
-        }
-
-        SDL_assert(drawn_text->font_size > 0);
-        int32 pt_size = get_font_pt_size(drawn_text->font_size);
-        TTF_Font* font = get_font(pt_size);
-        SDL_Surface* surface = TTF_RenderText_Blended(font, drawn_text->text_string, drawn_text->color);
-        drawn_text->cached_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
-        // Pass-through the color's alpha channel to control opacity
-        SDL_SetTextureAlphaMod(drawn_text->cached_texture, drawn_text->color.a);
-        SDL_FreeSurface(surface);
-
-        SDL_QueryTexture(drawn_text->cached_texture, NULL, NULL, &drawn_text->text_rect.w, &drawn_text->text_rect.h);
-
-        drawn_text->text_rect.w /= global_text_dpi_scale_factor;
-        drawn_text->text_rect.h /= global_text_dpi_scale_factor;
-    }
-
-    SDL_RenderCopy(global_renderer, drawn_text->cached_texture, NULL, &drawn_text->text_rect);
-}
-
 int32 main(int32 argc, char* argv[])
 {
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -219,13 +164,6 @@ int32 main(int32 argc, char* argv[])
 
     set_dpi();
 
-    global_font = TTF_OpenFont("fonts/Roboto/Roboto-Medium.ttf", 256 * global_text_dpi_scale_factor);
-    if (global_font == nullptr)
-    {
-        std::cerr << "Failed to load font: " << TTF_GetError() << std::endl;
-        return -1;
-    }
-
     SDL_Event event;
     Input input = {};
 
@@ -276,16 +214,31 @@ int32 main(int32 argc, char* argv[])
     char render_mega_cycles_text[100] = "";
 #endif
 
-    SDL_Color debug_text_color = { 255, 255, 255, 255 }; // White color
-    real32 debug_font_size = 16.0f;
+    SDL_Color white_text_color = { 255, 255, 255, 255 }; // White color
+    real32 font_size = 16.0f;
+
+    Drawn_Text_Static score_drawn_text_static = {};
+    {
+        char text_score[] = "SCORE";
+        score_drawn_text_static.text_string = text_score;
+    }
+    score_drawn_text_static.font_size = font_size;
+    score_drawn_text_static.color = white_text_color;
+    score_drawn_text_static.text_rect.x = LOGICAL_WIDTH / 2;
+    score_drawn_text_static.text_rect.y = LOGICAL_HEIGHT / 2;
+
+
     real32 debug_x_start_offset = (int32)(LOGICAL_WIDTH * 0.01f);
     real32 debug_y_start_offset = (int32)(LOGICAL_HEIGHT * 0.01f);
     real32 debug_padding = 5.0f;
 
-    real32 font_pt_size = get_font_pt_size(debug_font_size);
-    TTF_Font* font = get_font(font_pt_size);
-    real32 font_height = TTF_FontHeight(font) / global_text_dpi_scale_factor;
-
+    // Get font height for offset
+    real32 font_height;
+    {
+        real32 font_pt_size = get_font_pt_size(font_size);
+        TTF_Font* font = get_font(font_pt_size);
+        font_height = TTF_FontHeight(font) / global_text_dpi_scale_factor;
+    }
     real32 vertical_offset = font_height + debug_padding;
     real32 y_offset = 0;
 
@@ -293,8 +246,8 @@ int32 main(int32 argc, char* argv[])
     Drawn_Text fps_drawn_text = {};
     fps_drawn_text.original_value = 0.f;
     fps_drawn_text.text_string = fps_text;
-    fps_drawn_text.font_size = debug_font_size;
-    fps_drawn_text.color = debug_text_color;
+    fps_drawn_text.font_size = font_size;
+    fps_drawn_text.color = white_text_color;
     fps_drawn_text.text_rect.x = debug_x_start_offset;
     fps_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
@@ -303,8 +256,8 @@ int32 main(int32 argc, char* argv[])
     Drawn_Text ms_per_frame_drawn_text = {};
     ms_per_frame_drawn_text.original_value = 0.f;
     ms_per_frame_drawn_text.text_string = ms_per_frame_text;
-    ms_per_frame_drawn_text.font_size = debug_font_size;
-    ms_per_frame_drawn_text.color = debug_text_color;
+    ms_per_frame_drawn_text.font_size = font_size;
+    ms_per_frame_drawn_text.color = white_text_color;
     ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
     ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
@@ -313,8 +266,8 @@ int32 main(int32 argc, char* argv[])
     Drawn_Text work_ms_per_frame_drawn_text = {};
     work_ms_per_frame_drawn_text.original_value = 0.f;
     work_ms_per_frame_drawn_text.text_string = work_ms_per_frame_text;
-    work_ms_per_frame_drawn_text.font_size = debug_font_size;
-    work_ms_per_frame_drawn_text.color = debug_text_color;
+    work_ms_per_frame_drawn_text.font_size = font_size;
+    work_ms_per_frame_drawn_text.color = white_text_color;
     work_ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
     work_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
@@ -323,8 +276,8 @@ int32 main(int32 argc, char* argv[])
     Drawn_Text writing_buffer_ms_per_frame_drawn_text = {};
     writing_buffer_ms_per_frame_drawn_text.original_value = 0.f;
     writing_buffer_ms_per_frame_drawn_text.text_string = writing_buffer_ms_per_frame_text;
-    writing_buffer_ms_per_frame_drawn_text.font_size = debug_font_size;
-    writing_buffer_ms_per_frame_drawn_text.color = debug_text_color;
+    writing_buffer_ms_per_frame_drawn_text.font_size = font_size;
+    writing_buffer_ms_per_frame_drawn_text.color = white_text_color;
     writing_buffer_ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
     writing_buffer_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
@@ -333,8 +286,8 @@ int32 main(int32 argc, char* argv[])
     Drawn_Text render_ms_per_frame_drawn_text = {};
     render_ms_per_frame_drawn_text.original_value = 0.f;
     render_ms_per_frame_drawn_text.text_string = render_ms_per_frame_text;
-    render_ms_per_frame_drawn_text.font_size = debug_font_size;
-    render_ms_per_frame_drawn_text.color = debug_text_color;
+    render_ms_per_frame_drawn_text.font_size = font_size;
+    render_ms_per_frame_drawn_text.color = white_text_color;
     render_ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
     render_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
@@ -343,8 +296,8 @@ int32 main(int32 argc, char* argv[])
     Drawn_Text sleep_ms_per_frame_drawn_text = {};
     sleep_ms_per_frame_drawn_text.original_value = 0.f;
     sleep_ms_per_frame_drawn_text.text_string = sleep_ms_per_frame_text;
-    sleep_ms_per_frame_drawn_text.font_size = debug_font_size;
-    sleep_ms_per_frame_drawn_text.color = debug_text_color;
+    sleep_ms_per_frame_drawn_text.font_size = font_size;
+    sleep_ms_per_frame_drawn_text.color = white_text_color;
     sleep_ms_per_frame_drawn_text.text_rect.x = debug_x_start_offset;
     sleep_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
@@ -393,7 +346,7 @@ int32 main(int32 argc, char* argv[])
 
         State state;
 
-        {  // Simulation work
+        { // Simulation work
             if (!global_paused)
             {
                 // https://gafferongames.com/post/fix_your_timestep/
@@ -475,42 +428,14 @@ int32 main(int32 argc, char* argv[])
                 real32 start_x = LOGICAL_WIDTH * 0.75f;
                 real32 font_size = 16.0f;
 
-#if 0
-                render_text_with_scaling("SCORE",
-                                         start_x - padding, // X
-                                         0, // Y
-                                         16.0f,
-                                         score_text_color,
-                                         &static_score_text_rect);
-#endif
                 int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
                 TTF_Font* font = get_font(pt_size);
 
-                char static_score_text[] = "Score";
-
-                if (is_first_run)
-                {
-                    if (cached_snake_score_text_texture) {
-                        // Cleanup
-                        SDL_DestroyTexture(cached_snake_score_text_texture);
-                    }
-
-                    SDL_Surface* surface = TTF_RenderText_Blended(font, static_score_text, score_text_color);
-                    cached_snake_score_text_texture = SDL_CreateTextureFromSurface(global_renderer, surface);
-                    // Pass-through the color's alpha channel to control opacity
-                    SDL_SetTextureAlphaMod(cached_snake_score_text_texture, score_text_color.a);
-                    SDL_FreeSurface(surface);
-                }
-
-                SDL_Rect static_score_text_rect = {};
-                static_score_text_rect.x = start_x - padding; // X
-                static_score_text_rect.y = 0; // Y
-                SDL_QueryTexture(cached_snake_score_text_texture, NULL, NULL, &static_score_text_rect.w, &static_score_text_rect.h);
-
-                static_score_text_rect.w /= global_text_dpi_scale_factor;
-                static_score_text_rect.h /= global_text_dpi_scale_factor;
-
-                SDL_RenderCopy(global_renderer, cached_snake_score_text_texture, NULL, &static_score_text_rect);
+                
+                int32 OFFSET = 40;
+                score_drawn_text_static.text_rect.x = LOGICAL_WIDTH - score_drawn_text_static.text_rect.w - OFFSET;
+                score_drawn_text_static.text_rect.y = 0;
+                draw_text_static(&score_drawn_text_static, is_first_run);
 
                 // ==========================
 
@@ -534,7 +459,7 @@ int32 main(int32 argc, char* argv[])
                     SDL_FreeSurface(surface);
                 }
 
-                dynamic_score_text_rect.x = start_x + static_score_text_rect.w + (10) - padding; // X
+                dynamic_score_text_rect.x = score_drawn_text_static.text_rect.x + 5 + score_drawn_text_static.text_rect.w;
                 dynamic_score_text_rect.y = 0; // Y
                 SDL_QueryTexture(cached_snake_score_number_texture, NULL, NULL, &dynamic_score_text_rect.w, &dynamic_score_text_rect.h);
 
@@ -556,7 +481,7 @@ int32 main(int32 argc, char* argv[])
                 }
 
                 real32 ms_per_frame = total_LAST_frame_time_elapsed__seconds * 1000.0f;
-                {  // Total Frame Time (MS)
+                { // Total Frame Time (MS)
                     if (global_debug_counter == 0)
                     {
                         printf("Ms/frame: %.04f (Target: %.04f), ",
@@ -565,7 +490,7 @@ int32 main(int32 argc, char* argv[])
                     }
                 }
 
-                {  // Work Frame Time (MS)
+                { // Work Frame Time (MS)
                     real32 work_ms_per_frame = LAST_frame_time_elapsed_for_work__seconds * 1000.0f;
 
                     if (global_debug_counter == 0)
@@ -586,7 +511,7 @@ int32 main(int32 argc, char* argv[])
                     }
                 }
 
-                {  // Render Frame Time (MS)
+                { // Render Frame Time (MS)
                     real32 render_ms_per_frame = LAST_frame_time_elapsed_for_render__seconds * 1000.0f;
 
                     if (global_debug_counter == 0)
@@ -597,7 +522,7 @@ int32 main(int32 argc, char* argv[])
                     }
                 }
 
-                {  // Sleep Frame Time (MS)
+                { // Sleep Frame Time (MS)
                     real32 sleep_ms_per_frame = LAST_frame_time_elapsed_for_sleep__seconds * 1000.0f;
 
                     if (global_debug_counter == 0)
@@ -633,7 +558,7 @@ int32 main(int32 argc, char* argv[])
                 real32 vertical_offset;
 
 #ifdef __WIN32__
-                {  // Mega Cycles Per Frame
+                { // Mega Cycles Per Frame
                     real64 mega_cycles_per_frame = global_total_cycles_elapsed / (1000.0f * 1000.0f);
 
                     if (global_debug_counter == 0)
@@ -651,7 +576,7 @@ int32 main(int32 argc, char* argv[])
                     y_offset += vertical_offset;
                 }
 
-                {  // Work Cycles Per Frame
+                { // Work Cycles Per Frame
                     real64 mega_cycles_for_actual_work = global_cycles_elapsed_before_render / (1000.0f * 1000.0f);
 
                     if (global_debug_counter == 0)
@@ -669,7 +594,7 @@ int32 main(int32 argc, char* argv[])
                     y_offset += vertical_offset;
                 }
 
-                {  // Render Cycles Per Frame
+                { // Render Cycles Per Frame
                     real64 mega_cycles_for_render = global_cycles_elapsed_after_render / (1000.0f * 1000.0f);
 
                     if (global_debug_counter == 0)
@@ -688,7 +613,7 @@ int32 main(int32 argc, char* argv[])
                 }
 #endif
 
-                {  // FPS
+                { // FPS
                     real32 fps = 1.0f / total_LAST_frame_time_elapsed__seconds;
 
                     if (global_debug_counter == 0)
@@ -714,7 +639,7 @@ int32 main(int32 argc, char* argv[])
                     draw_text_real32(&ms_per_frame_drawn_text, is_first_run, ms_per_frame);
                 }
 
-                {  // Work Frame Time (MS)
+                { // Work Frame Time (MS)
                     real32 work_ms_per_frame = LAST_frame_time_elapsed_for_work__seconds * 1000.0f;
 
                     if (global_debug_counter == 0)
@@ -729,7 +654,7 @@ int32 main(int32 argc, char* argv[])
                     draw_text_real32(&work_ms_per_frame_drawn_text, is_first_run, work_ms_per_frame);
                 }
 
-                {  // Buffer Writing Time (MS)
+                { // Buffer Writing Time (MS)
                     real32 writing_buffer_ms_per_frame = LAST_frame_time_elapsed_for_writing_buffer__seconds * 1000.0f;
 
                     if (global_debug_counter == 0)
@@ -744,7 +669,7 @@ int32 main(int32 argc, char* argv[])
                     draw_text_real32(&writing_buffer_ms_per_frame_drawn_text, is_first_run, writing_buffer_ms_per_frame);
                 }
 
-                {  // Render Frame Time (MS)
+                { // Render Frame Time (MS)
                     real32 render_ms_per_frame = LAST_frame_time_elapsed_for_render__seconds * 1000.0f;
 
                     if (global_debug_counter == 0)
@@ -756,10 +681,10 @@ int32 main(int32 argc, char* argv[])
                                  (render_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    draw_text_real32(&render_ms_per_frame_drawn_text, is_first_run, render_ms_per_frame);
+                   draw_text_real32(&render_ms_per_frame_drawn_text, is_first_run, render_ms_per_frame);
                 }
 
-                {  // Sleep Frame Time (MS)
+                { // Sleep Frame Time (MS)
                     real32 sleep_ms_per_frame = LAST_frame_time_elapsed_for_sleep__seconds * 1000.0f;
 
                     if (global_debug_counter == 0)
@@ -824,7 +749,7 @@ int32 main(int32 argc, char* argv[])
         master_timer.time_elapsed_for_render__seconds =
             ((real32)(counter_after_render - counter_after_writing_buffer) / (real32)master_timer.COUNTER_FREQUENCY);
 #if 1
-        {  // Sleep
+        { // Sleep
             uint64 MICRO = 1000000;
             const Uint64 TARGET_FRAME_DURATION = MICRO / TARGET_SCREEN_FPS;  // In microseconds
             int64 target_duration_ticks =

@@ -15,6 +15,12 @@ enum
     BUTTON_COUNT,  // Should be the last item
 };
 
+struct Button_State
+{
+    bool32 is_down;
+    bool32 changed;
+};
+
 struct Input
 {
     Button_State buttons[BUTTON_COUNT];
