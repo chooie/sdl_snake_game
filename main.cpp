@@ -181,6 +181,9 @@ int32 main(int32 argc, char* argv[])
     global_display_debug_info = 0;
 
     State starting_state = {};
+    
+    starting_state.game_over = 0;
+
     starting_state.pos_x = X_GRIDS / 2;
     starting_state.pos_y = Y_GRIDS / 4;
     starting_state.current_direction = DIRECTION_NORTH;
@@ -315,6 +318,11 @@ int32 main(int32 argc, char* argv[])
 
     while (global_running)
     {
+        if (current_state.game_over)
+        {
+            printf("Game over!\n");
+        }
+
         real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.time_elapsed_for_work__seconds;
         real32 LAST_frame_time_elapsed_for_writing_buffer__seconds = master_timer.time_elapsed_for_writing_buffer__seconds;
         real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.time_elapsed_for_render__seconds;

@@ -35,6 +35,7 @@ TODO
     / Optimize drawing the grid
     / Optimize debug text rendering
     ? Colliding with wall or self restarts the game
+        - Show Game over message
     ? Add 'grace period' when colliding with wall or self
         - The user should have a chance of like 1 second or so where they can turn to save themselves
     ? Start speeding up as more blips are eaten

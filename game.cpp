@@ -38,6 +38,8 @@ struct Snake_Part
 
 struct State
 {
+    bool32 game_over;
+
     int32 pos_x;
     int32 pos_y;
 
@@ -109,6 +111,10 @@ Direction get_next_input()
 
 void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
 {
+    if (state->game_over) {
+        return;
+    }
+
     state->time_until_grid_jump__seconds -= dt_s;
 
     if (state->time_until_grid_jump__seconds <= 0)
@@ -183,7 +189,6 @@ void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
             }
         }
 
-
         for (int32 i = state->next_snake_part_index - 1; i >= 0; i--)
         {
             Snake_Part* current_snake_part = &state->snake_parts[i];
@@ -235,6 +240,16 @@ void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
                 }
             }
             break;
+        }
+
+        for (int32 i = 0; i < state->next_snake_part_index - 1; i++)
+        {
+            Snake_Part* current_snake_part = &state->snake_parts[i];
+            if (state->pos_x == current_snake_part->pos_x && state->pos_y == current_snake_part->pos_y)
+            {
+                state->game_over = 1;
+                break;
+            }
         }
 
         state->direction_locked = 0;
