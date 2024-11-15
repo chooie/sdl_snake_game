@@ -208,10 +208,12 @@ int32 main(int32 argc, char* argv[])
     global_last_cycle_count = __rdtsc();
 #endif
 
+#define DEBUG_TEXT_STRING_LENGTH 100
+
 #ifdef __WIN32__
-    char mega_cycles_text[100] = "";
-    char actual_mega_cycles_text[100] = "";
-    char render_mega_cycles_text[100] = "";
+    char mega_cycles_text[DEBUG_TEXT_STRING_LENGTH] = "";
+    char actual_mega_cycles_text[DEBUG_TEXT_STRING_LENGTH] = "";
+    char render_mega_cycles_text[DEBUG_TEXT_STRING_LENGTH] = "";
 #endif
 
     SDL_Color white_text_color = { 255, 255, 255, 255 }; // White color
@@ -225,7 +227,9 @@ int32 main(int32 argc, char* argv[])
     score_drawn_text_static.font_size = font_size;
     score_drawn_text_static.color = white_text_color;
 
-    char dynamic_score_text[5]; // Make sure the buffer is large enough
+#define DYNAMIC_SCORE_LENGTH 5
+
+    char dynamic_score_text[DYNAMIC_SCORE_LENGTH]; // Make sure the buffer is large enough
     Drawn_Text_Int32 score_drawn_text_dynamic = {};
     score_drawn_text_dynamic.original_value = 0;
     score_drawn_text_dynamic.text_string = dynamic_score_text;
@@ -247,7 +251,7 @@ int32 main(int32 argc, char* argv[])
     real32 vertical_offset = font_height + debug_padding;
     real32 y_offset = 0;
 
-    char fps_text[100] = "";
+    char fps_text[DEBUG_TEXT_STRING_LENGTH] = "";
     Drawn_Text fps_drawn_text = {};
     fps_drawn_text.original_value = 0.f;
     fps_drawn_text.text_string = fps_text;
@@ -257,7 +261,7 @@ int32 main(int32 argc, char* argv[])
     fps_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
 
-    char ms_per_frame_text[100] = "";
+    char ms_per_frame_text[DEBUG_TEXT_STRING_LENGTH] = "";
     Drawn_Text ms_per_frame_drawn_text = {};
     ms_per_frame_drawn_text.original_value = 0.f;
     ms_per_frame_drawn_text.text_string = ms_per_frame_text;
@@ -267,7 +271,7 @@ int32 main(int32 argc, char* argv[])
     ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
 
-    char work_ms_per_frame_text[100] = "";
+    char work_ms_per_frame_text[DEBUG_TEXT_STRING_LENGTH] = "";
     Drawn_Text work_ms_per_frame_drawn_text = {};
     work_ms_per_frame_drawn_text.original_value = 0.f;
     work_ms_per_frame_drawn_text.text_string = work_ms_per_frame_text;
@@ -277,7 +281,7 @@ int32 main(int32 argc, char* argv[])
     work_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
 
-    char writing_buffer_ms_per_frame_text[100] = "";
+    char writing_buffer_ms_per_frame_text[DEBUG_TEXT_STRING_LENGTH] = "";
     Drawn_Text writing_buffer_ms_per_frame_drawn_text = {};
     writing_buffer_ms_per_frame_drawn_text.original_value = 0.f;
     writing_buffer_ms_per_frame_drawn_text.text_string = writing_buffer_ms_per_frame_text;
@@ -287,7 +291,7 @@ int32 main(int32 argc, char* argv[])
     writing_buffer_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
 
-    char render_ms_per_frame_text[100] = "";
+    char render_ms_per_frame_text[DEBUG_TEXT_STRING_LENGTH] = "";
     Drawn_Text render_ms_per_frame_drawn_text = {};
     render_ms_per_frame_drawn_text.original_value = 0.f;
     render_ms_per_frame_drawn_text.text_string = render_ms_per_frame_text;
@@ -297,7 +301,7 @@ int32 main(int32 argc, char* argv[])
     render_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
 
-    char sleep_ms_per_frame_text[100] = "";
+    char sleep_ms_per_frame_text[DEBUG_TEXT_STRING_LENGTH] = "";
     Drawn_Text sleep_ms_per_frame_drawn_text = {};
     sleep_ms_per_frame_drawn_text.original_value = 0.f;
     sleep_ms_per_frame_drawn_text.text_string = sleep_ms_per_frame_text;
@@ -441,7 +445,7 @@ int32 main(int32 argc, char* argv[])
 
                 if (is_first_run || state.next_snake_part_index != score_drawn_text_dynamic.original_value)
                 {
-                    snprintf(dynamic_score_text, 5, "%d", state.next_snake_part_index);
+                    snprintf(dynamic_score_text, DYNAMIC_SCORE_LENGTH, "%d", state.next_snake_part_index);
                 }
 
                 score_drawn_text_dynamic.text_rect.x = score_drawn_text_static.text_rect.x + 5 + score_drawn_text_static.text_rect.w;
