@@ -4,6 +4,7 @@
 #include <iostream>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 
 #ifdef __WINDOWS__
 #include <windows.h>
@@ -141,6 +142,26 @@ int32 main(int32 argc, char* argv[])
         std::cerr << "Failed to initialize SDL_ttf: " << TTF_GetError() << std::endl;
         return -1;
     }
+
+    if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
+        return 1;
+    }
+
+    // Load music
+    Mix_Music* music = Mix_LoadMUS("music/mixkit-feast-from-the-east.mp3");
+    if (!music) {
+        printf("Failed to load music! SDL_mixer Error: %s\n", Mix_GetError());
+        return 1;
+    }
+
+    // Play music and sound effect
+    Mix_PlayMusic(music, -1);  // Loop music indefinitely
 
     global_window = SDL_CreateWindow("SDL Starter",
                                      SDL_WINDOWPOS_CENTERED,
