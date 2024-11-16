@@ -68,6 +68,7 @@ void handle_input(SDL_Event* event, Input* input)
                     process_input(BUTTON_S, SDLK_s);
                     process_input(BUTTON_D, SDLK_d);
                     process_input(BUTTON_SPACE, SDLK_SPACE);
+                    process_input(BUTTON_ENTER, SDLK_RETURN);
                 }
             }
             break;

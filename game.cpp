@@ -242,7 +242,7 @@ void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
             break;
         }
 
-        for (int32 i = 0; i < state->next_snake_part_index - 1; i++)
+        for (int32 i = 0; i < state->next_snake_part_index; i++)
         {
             Snake_Part* current_snake_part = &state->snake_parts[i];
             if (state->pos_x == current_snake_part->pos_x && state->pos_y == current_snake_part->pos_y)

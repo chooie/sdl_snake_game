@@ -96,22 +96,16 @@ int32 get_font_pt_size(real32 font_size)
 
 struct Drawn_Text_Static
 {
-    char* text_string;
+    const char* text_string;
     real32 font_size;
     SDL_Color color;
     SDL_Rect text_rect;
     SDL_Texture* cached_texture;
 };
-void draw_text_static(Drawn_Text_Static* drawn_text, bool32 is_first_run)
+void draw_text_static(Drawn_Text_Static* drawn_text)
 {
-    if (is_first_run)
+    if (!drawn_text->cached_texture)
     {
-        if (drawn_text->cached_texture) {
-            // Cleanup
-            SDL_DestroyTexture(drawn_text->cached_texture);
-            drawn_text->cached_texture = 0;
-        }
-
         SDL_assert(drawn_text->font_size > 0);
         int32 pt_size = get_font_pt_size(drawn_text->font_size);
         TTF_Font* font = get_font(pt_size);

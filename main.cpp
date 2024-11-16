@@ -113,6 +113,25 @@ int32 filterEvent(void* userdata, SDL_Event* event)
     return 1;  // Allow other events
 }
 
+void reset_state(State* state)
+{
+    head = 0;
+    tail = 0;
+
+    state->game_over = 0;
+
+    state->pos_x = X_GRIDS / 2;
+    state->pos_y = Y_GRIDS / 4;
+    state->current_direction = DIRECTION_NORTH;
+    state->next_snake_part_index = 0;
+
+    state->set_time_until_grid_jump__seconds = .1f;
+    state->time_until_grid_jump__seconds = state->set_time_until_grid_jump__seconds;
+
+    state->blip_pos_x = X_GRIDS / 2;
+    state->blip_pos_y = Y_GRIDS / 2;
+}
+
 int32 main(int32 argc, char* argv[])
 {
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -181,29 +200,12 @@ int32 main(int32 argc, char* argv[])
     global_display_debug_info = 0;
 
     State starting_state = {};
-    
-    starting_state.game_over = 0;
-
-    starting_state.pos_x = X_GRIDS / 2;
-    starting_state.pos_y = Y_GRIDS / 4;
-    starting_state.current_direction = DIRECTION_NORTH;
-    starting_state.next_snake_part_index = 0;
-
-    starting_state.set_time_until_grid_jump__seconds = .1f;
-    starting_state.time_until_grid_jump__seconds = starting_state.set_time_until_grid_jump__seconds;
-
-    starting_state.blip_pos_x = X_GRIDS / 2;
-    starting_state.blip_pos_y = Y_GRIDS / 2;
+    reset_state(&starting_state);
 
     State previous_state = starting_state;
     State current_state = starting_state;
 
     bool32 is_first_run = 1;
-
-    // TODO: move me
-    int32 last_painted_snake_score = 0;
-    SDL_Texture* cached_snake_score_text_texture;
-    SDL_Texture* cached_snake_score_number_texture;
 
 #ifdef __WIN32__
     // This looks like a function call but it's actually an intrinsic that
@@ -224,11 +226,24 @@ int32 main(int32 argc, char* argv[])
 
     Drawn_Text_Static score_drawn_text_static = {};
     {
-        char text_score[] = "SCORE";
-        score_drawn_text_static.text_string = text_score;
+        score_drawn_text_static.text_string = "SCORE";
     }
     score_drawn_text_static.font_size = font_size;
     score_drawn_text_static.color = white_text_color;
+
+    Drawn_Text_Static game_over_drawn_text_static = {};
+    {
+        game_over_drawn_text_static.text_string = "GAME OVER";
+    }
+    game_over_drawn_text_static.font_size = font_size * 2.f;
+    game_over_drawn_text_static.color = white_text_color;
+
+    Drawn_Text_Static restart_drawn_text_static = {};
+    {
+        restart_drawn_text_static.text_string = "Press <Enter> to restart.";
+    }
+    restart_drawn_text_static.font_size = font_size;
+    restart_drawn_text_static.color = white_text_color;
 
 #define DYNAMIC_SCORE_LENGTH 5
 
@@ -318,11 +333,6 @@ int32 main(int32 argc, char* argv[])
 
     while (global_running)
     {
-        if (current_state.game_over)
-        {
-            printf("Game over!\n");
-        }
-
         real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.time_elapsed_for_work__seconds;
         real32 LAST_frame_time_elapsed_for_writing_buffer__seconds = master_timer.time_elapsed_for_writing_buffer__seconds;
         real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.time_elapsed_for_render__seconds;
@@ -362,6 +372,15 @@ int32 main(int32 argc, char* argv[])
         }
 
         State state;
+
+        { // Handle Some Input in here?
+            if (state.game_over && pressed_local(BUTTON_ENTER))
+            {
+                reset_state(&previous_state);
+                reset_state(&current_state);
+                reset_state(&state);
+            }
+        }
 
         { // Simulation work
             if (!global_paused)
@@ -447,7 +466,7 @@ int32 main(int32 argc, char* argv[])
                 int32 OFFSET = 40;
                 score_drawn_text_static.text_rect.x = LOGICAL_WIDTH - score_drawn_text_static.text_rect.w - OFFSET;
                 score_drawn_text_static.text_rect.y = 0;
-                draw_text_static(&score_drawn_text_static, is_first_run);
+                draw_text_static(&score_drawn_text_static);
 
                 // ==========================
 
@@ -459,6 +478,27 @@ int32 main(int32 argc, char* argv[])
                 score_drawn_text_dynamic.text_rect.x = score_drawn_text_static.text_rect.x + 5 + score_drawn_text_static.text_rect.w;
                 score_drawn_text_dynamic.text_rect.y = 0; 
                 draw_text_int32(&score_drawn_text_dynamic, is_first_run, state.next_snake_part_index);
+            }
+
+            { // Render Game Over
+                if (state.game_over)
+                {
+                    draw_text_static(&game_over_drawn_text_static);
+                    game_over_drawn_text_static.text_rect.x = LOGICAL_WIDTH / 2;
+                    game_over_drawn_text_static.text_rect.y = LOGICAL_HEIGHT / 2;
+
+                    game_over_drawn_text_static.text_rect.x -= game_over_drawn_text_static.text_rect.w / 2;
+                    game_over_drawn_text_static.text_rect.y -= game_over_drawn_text_static.text_rect.h / 2;
+
+                    draw_text_static(&restart_drawn_text_static);
+                    restart_drawn_text_static.text_rect.x = LOGICAL_WIDTH / 2;
+                    restart_drawn_text_static.text_rect.y = LOGICAL_HEIGHT / 2;
+                    restart_drawn_text_static.text_rect.x -= restart_drawn_text_static.text_rect.w / 2;
+                    restart_drawn_text_static.text_rect.y -= restart_drawn_text_static.text_rect.h / 2;
+
+                    // Place text under other text
+                    restart_drawn_text_static.text_rect.y += game_over_drawn_text_static.text_rect.h;
+                }
             }
 #endif
 #endif
@@ -790,7 +830,6 @@ int32 main(int32 argc, char* argv[])
     }
 
     cleanup_fonts();
-    SDL_DestroyTexture(cached_snake_score_number_texture);
     SDL_DestroyRenderer(global_renderer);
     SDL_DestroyWindow(global_window);
     TTF_Quit();
