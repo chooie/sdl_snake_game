@@ -352,22 +352,22 @@ int32 main(int32 argc, char* argv[])
 
         if (!global_paused) {
 
-            if (pressed_local(BUTTON_W))
+            if (pressed_local(BUTTON_W) || pressed_local(BUTTON_UP))
             {
                 add_input(DIRECTION_NORTH);
             }
 
-            if (pressed_local(BUTTON_A))
+            if (pressed_local(BUTTON_A) || pressed_local(BUTTON_LEFT))
             {
                 add_input(DIRECTION_WEST);
             }
 
-            if (pressed_local(BUTTON_S))
+            if (pressed_local(BUTTON_S) || pressed_local(BUTTON_DOWN))
             {
                 add_input(DIRECTION_SOUTH);
             }
 
-            if (pressed_local(BUTTON_D))
+            if (pressed_local(BUTTON_D) || pressed_local(BUTTON_RIGHT))
             {
                 add_input(DIRECTION_EAST);
             }

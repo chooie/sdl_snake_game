@@ -67,6 +67,10 @@ void handle_input(SDL_Event* event, Input* input)
                     process_input(BUTTON_A, SDLK_a);
                     process_input(BUTTON_S, SDLK_s);
                     process_input(BUTTON_D, SDLK_d);
+                    process_input(BUTTON_UP, SDLK_UP);
+                    process_input(BUTTON_LEFT, SDLK_LEFT);
+                    process_input(BUTTON_DOWN, SDLK_DOWN);
+                    process_input(BUTTON_RIGHT, SDLK_RIGHT);
                     process_input(BUTTON_SPACE, SDLK_SPACE);
                     process_input(BUTTON_ENTER, SDLK_RETURN);
                 }
