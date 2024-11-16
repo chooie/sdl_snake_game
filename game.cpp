@@ -49,8 +49,7 @@ struct State
     Direction current_direction;
     Direction proposed_direction;
     bool32 direction_locked;
-    // real32 velocity_x;
-    // real32 velocity_y;
+
     real32 time_until_grid_jump__seconds;
     real32 set_time_until_grid_jump__seconds;
 
@@ -162,30 +161,34 @@ void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
             }
         }
 
-        if (state->pos_x == state->blip_pos_x && state->pos_y == state->blip_pos_y) // Collision with blip
-        {
-            { // Grow snake part
-                Snake_Part new_snake_part = {};
-                Snake_Part* last_snake_part = &state->snake_parts[state->next_snake_part_index];
-                new_snake_part.pos_x = last_snake_part->pos_x;
-                new_snake_part.pos_y = last_snake_part->pos_y;
-                new_snake_part.direction = last_snake_part->direction;
-                state->next_snake_part_index++;
+        { // Blip collision
+            if (state->pos_x == state->blip_pos_x && state->pos_y == state->blip_pos_y)
+            {
+                { // Grow snake part
+                    Snake_Part new_snake_part = {};
+                    Snake_Part* last_snake_part = &state->snake_parts[state->next_snake_part_index];
+                    new_snake_part.pos_x = last_snake_part->pos_x;
+                    new_snake_part.pos_y = last_snake_part->pos_y;
+                    new_snake_part.direction = last_snake_part->direction;
+                    state->next_snake_part_index++;
 
-                if (!(state->next_snake_part_index < MAX_TAIL_LENGTH))
-                {
-                    SDL_SetError("Snake tail must never get this long! %d", state->next_snake_part_index);
-                    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", SDL_GetError());
-                    SDL_assert_release(state->next_snake_part_index < MAX_TAIL_LENGTH);
+                    if (!(state->next_snake_part_index < MAX_TAIL_LENGTH))
+                    {
+                        SDL_SetError("Snake tail must never get this long! %d", state->next_snake_part_index);
+                        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", SDL_GetError());
+                        SDL_assert_release(state->next_snake_part_index < MAX_TAIL_LENGTH);
+                    }
                 }
-            }
 
-            { // Randomly spawn blip somewhere else
-                uint32 random_x = custom_rand_range(X_GRIDS);
-                state->blip_pos_x = random_x;
+                { // Randomly spawn blip somewhere else
+                    uint32 random_x = custom_rand_range(X_GRIDS);
+                    state->blip_pos_x = random_x;
 
-                uint32 random_y = custom_rand_range(Y_GRIDS);
-                state->blip_pos_y = random_y;
+                    uint32 random_y = custom_rand_range(Y_GRIDS);
+                    state->blip_pos_y = random_y;
+                }
+
+                state->set_time_until_grid_jump__seconds -= 0.0005;
             }
         }
 
@@ -242,13 +245,19 @@ void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
             break;
         }
 
-        for (int32 i = 0; i < state->next_snake_part_index; i++)
-        {
-            Snake_Part* current_snake_part = &state->snake_parts[i];
-            if (state->pos_x == current_snake_part->pos_x && state->pos_y == current_snake_part->pos_y)
+        { // End Game if player crashes
+            for (int32 i = 0; i < state->next_snake_part_index; i++)
             {
+                Snake_Part* current_snake_part = &state->snake_parts[i];
+                if (state->pos_x == current_snake_part->pos_x && state->pos_y == current_snake_part->pos_y)
+                {
+                    state->game_over = 1;
+                    break;
+                }
+            }
+
+            if (state->pos_x < 0 || state->pos_x >= X_GRIDS || state->pos_y < 0 || state->pos_y >= Y_GRIDS) {
                 state->game_over = 1;
-                break;
             }
         }
 

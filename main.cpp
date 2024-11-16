@@ -237,6 +237,7 @@ int32 main(int32 argc, char* argv[])
     }
     game_over_drawn_text_static.font_size = font_size * 2.f;
     game_over_drawn_text_static.color = white_text_color;
+    game_over_drawn_text_static.text_rect.x = -LOGICAL_WIDTH; // Draw off-screen initially;
 
     Drawn_Text_Static restart_drawn_text_static = {};
     {
@@ -244,6 +245,7 @@ int32 main(int32 argc, char* argv[])
     }
     restart_drawn_text_static.font_size = font_size;
     restart_drawn_text_static.color = white_text_color;
+    restart_drawn_text_static.text_rect.x = -LOGICAL_WIDTH; // Draw off-screen initially;
 
 #define DYNAMIC_SCORE_LENGTH 5
 

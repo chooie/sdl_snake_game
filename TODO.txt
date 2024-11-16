@@ -34,11 +34,9 @@ TODO
             - Did this for the score
     / Optimize drawing the grid
     / Optimize debug text rendering
-    ? Colliding with wall or self restarts the game
+    / Colliding with wall or self restarts the game
         / Show Game over message
         / Can restart the game
-    ? Add 'grace period' when colliding with wall or self
-        - The user should have a chance of like 1 second or so where they can turn to save themselves
     ? Start speeding up as more blips are eaten
 ? Play sound
 ? Game menu
@@ -46,11 +44,13 @@ TODO
 Nice-to-haves
 --------------
 ? Controller support
+? Add 'grace period' when colliding with wall or self
+    - The user should have a chance of like 1 second or so where they can turn to save themselves
 ? Rebindable keys
 
 Cleanup/Best-practice
 -------
-? HOW DO I STOP RE-RENDERING TEXTURES EVERY FRAME
+/ HOW DO I STOP RE-RENDERING TEXTURES EVERY FRAME
     - THIS IS CAUSING MISSED FRAMES AND GENERALLY THROWING OFF THE TIMING
     - I can use a bitmap
     - I can just re-render textures for dynamic text and cache the static text textures
