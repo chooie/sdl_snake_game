@@ -1,4 +1,5 @@
 #include "common.h"
+#include "audio.h"
 
 // Define parameters for the LCG
 uint32 seed = 12345; // Initial seed value
@@ -108,7 +109,7 @@ Direction get_next_input()
     return dir;
 }
 
-void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
+void simulate(State* state, Audio_Context* audio_context, real64 simulation_time_elapsed, real32 dt_s)
 {
     if (state->game_over) {
         return;
@@ -189,6 +190,7 @@ void simulate(State* state, real64 simulation_time_elapsed, real32 dt_s)
                 }
 
                 state->set_time_until_grid_jump__seconds -= 0.0005;
+                play_sound_effect(audio_context->effect_beep);
             }
         }
 

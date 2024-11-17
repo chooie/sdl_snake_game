@@ -93,6 +93,7 @@ uint64 global_total_cycles_elapsed;
 #include "input.cpp"
 #include "game.cpp"
 #include "render.cpp"
+#include "audio.cpp"
 // clang-format on
 
 int32 filterEvent(void* userdata, SDL_Event* event)
@@ -153,15 +154,12 @@ int32 main(int32 argc, char* argv[])
         return 1;
     }
 
-    // Load music
-    Mix_Music* music = Mix_LoadMUS("music/mixkit-feast-from-the-east.mp3");
-    if (!music) {
-        printf("Failed to load music! SDL_mixer Error: %s\n", Mix_GetError());
-        return 1;
+    Audio_Context audio_ctx;
+    if (!audio_init(&audio_ctx)) {
+        fprintf(stderr, "Failed to initialize audio.\n");
+        SDL_Quit();
+        return -1;
     }
-
-    // Play music and sound effect
-    Mix_PlayMusic(music, -1);  // Loop music indefinitely
 
     global_window = SDL_CreateWindow("SDL Starter",
                                      SDL_WINDOWPOS_CENTERED,
@@ -356,6 +354,11 @@ int32 main(int32 argc, char* argv[])
 
     while (global_running)
     {
+        if (is_first_run) {
+            play_music(&audio_ctx);
+            set_music_volume(10.f);
+        }
+
         real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.time_elapsed_for_work__seconds;
         real32 LAST_frame_time_elapsed_for_writing_buffer__seconds = master_timer.time_elapsed_for_writing_buffer__seconds;
         real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.time_elapsed_for_render__seconds;
@@ -423,6 +426,7 @@ int32 main(int32 argc, char* argv[])
                 {  // Simulation 'consumes' whatever time is given to it based on the render rate
                     previous_state = current_state;
                     simulate(&current_state,
+                             &audio_ctx,
                              master_timer.physics_simulation_elapsed_time__seconds,
                              SIMULATION_DELTA_TIME_S);
                     master_timer.physics_simulation_elapsed_time__seconds += SIMULATION_DELTA_TIME_S;
