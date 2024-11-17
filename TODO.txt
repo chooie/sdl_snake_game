@@ -16,7 +16,7 @@ TODO
     / Render multiple debug texts in a column (millis/frame, fps, actual megacyles/frame, budgeted megacycles/frame,
       actual/budgeted - i.e. percent utilization)
     / Can toggle the debug text on and off
-? Make a Snake game prototype
+/ Make a Snake game prototype
     / Constantly move in whatever direction player is facing
     / Draw player grid
         - If you crash into the screen edge, you die
@@ -37,8 +37,8 @@ TODO
     / Colliding with wall or self restarts the game
         / Show Game over message
         / Can restart the game
-    ? Start speeding up as more blips are eaten
-? Play sound
+    / Start speeding up as more blips are eaten
+/ Play sound
 ? Game menu
 
 Nice-to-haves

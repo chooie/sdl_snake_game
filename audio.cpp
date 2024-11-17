@@ -16,10 +16,19 @@ bool32 audio_init(Audio_Context* ctx)
         fprintf(stderr, "Failed to load background music! Mix_Error: %s\n", Mix_GetError());
     }
 
-    ctx->effect_beep = Mix_LoadWAV("sounds/beep.wav");
+    // ctx->effect_beep = Mix_LoadWAV("sounds/beep.wav");
+    ctx->effect_beep = Mix_LoadWAV("sounds/beep-2.mp3");
+
     if (!ctx->effect_beep)
     {
         fprintf(stderr, "Failed to load beep sound effect! Mix_Error: %s\n", Mix_GetError());
+    }
+
+    ctx->effect_boom = Mix_LoadWAV("sounds/boom.mp3");
+
+    if (!ctx->effect_beep)
+    {
+        fprintf(stderr, "Failed to load boom sound effect! Mix_Error: %s\n", Mix_GetError());
     }
 
     return true;

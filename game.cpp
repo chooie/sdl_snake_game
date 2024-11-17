@@ -1,8 +1,8 @@
-#include "common.h"
 #include "audio.h"
+#include "common.h"
 
 // Define parameters for the LCG
-uint32 seed = 12345; // Initial seed value
+uint32 seed = 12345;  // Initial seed value
 #define LCG_A 1664525u
 #define LCG_C 1013904223u
 
@@ -111,7 +111,8 @@ Direction get_next_input()
 
 void simulate(State* state, Audio_Context* audio_context, real64 simulation_time_elapsed, real32 dt_s)
 {
-    if (state->game_over) {
+    if (state->game_over)
+    {
         return;
     }
 
@@ -162,10 +163,12 @@ void simulate(State* state, Audio_Context* audio_context, real64 simulation_time
             }
         }
 
-        { // Blip collision
+        {  // Blip collision
             if (state->pos_x == state->blip_pos_x && state->pos_y == state->blip_pos_y)
             {
-                { // Grow snake part
+                play_sound_effect(audio_context->effect_beep);
+
+                {  // Grow snake part
                     Snake_Part new_snake_part = {};
                     Snake_Part* last_snake_part = &state->snake_parts[state->next_snake_part_index];
                     new_snake_part.pos_x = last_snake_part->pos_x;
@@ -181,7 +184,7 @@ void simulate(State* state, Audio_Context* audio_context, real64 simulation_time
                     }
                 }
 
-                { // Randomly spawn blip somewhere else
+                {  // Randomly spawn blip somewhere else
                     uint32 random_x = custom_rand_range(X_GRIDS);
                     state->blip_pos_x = random_x;
 
@@ -190,7 +193,6 @@ void simulate(State* state, Audio_Context* audio_context, real64 simulation_time
                 }
 
                 state->set_time_until_grid_jump__seconds -= 0.0005;
-                play_sound_effect(audio_context->effect_beep);
             }
         }
 
@@ -203,7 +205,9 @@ void simulate(State* state, Audio_Context* audio_context, real64 simulation_time
                 current_snake_part->pos_x = state->pos_x;
                 current_snake_part->pos_y = state->pos_y;
                 current_snake_part->direction = state->current_direction;
-            } else {
+            }
+            else
+            {
                 Snake_Part* previous_snake_part = &state->snake_parts[i - 1];
                 current_snake_part->pos_x = previous_snake_part->pos_x;
                 current_snake_part->pos_y = previous_snake_part->pos_y;
@@ -247,7 +251,7 @@ void simulate(State* state, Audio_Context* audio_context, real64 simulation_time
             break;
         }
 
-        { // End Game if player crashes
+        {  // End Game if player crashes
             for (int32 i = 0; i < state->next_snake_part_index; i++)
             {
                 Snake_Part* current_snake_part = &state->snake_parts[i];
@@ -258,8 +262,14 @@ void simulate(State* state, Audio_Context* audio_context, real64 simulation_time
                 }
             }
 
-            if (state->pos_x < 0 || state->pos_x >= X_GRIDS || state->pos_y < 0 || state->pos_y >= Y_GRIDS) {
+            if (state->pos_x < 0 || state->pos_x >= X_GRIDS || state->pos_y < 0 || state->pos_y >= Y_GRIDS)
+            {
                 state->game_over = 1;
+            }
+
+            if (state->game_over)
+            {
+                play_sound_effect(audio_context->effect_boom);
             }
         }
 
