@@ -291,7 +291,7 @@ struct Gameplay_Texts
     Drawn_Text_Static* game_paused_drawn_text_static;
 };
 
-void render(Gameplay_State* state, Gameplay_Texts* gameplay_texts, bool32 is_first_run)
+void render_gameplay(Gameplay_State* state, Gameplay_Texts* gameplay_texts, bool32 is_first_run)
 {
     // NOTE: We need this to distinguish the 'usable canvas' from the black dead-space (due to differing aspect ratios)
     SDL_Rect drawable_canvas;

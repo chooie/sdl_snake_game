@@ -506,7 +506,7 @@ int32 main(int32 argc, char* argv[])
             SDL_RenderClear(global_renderer);
 
 #if 1
-            render(&state, &gameplay_texts, is_first_run);
+            render_gameplay(&state, &gameplay_texts, is_first_run);
 #endif
             if (TEXT_DEBUGGING_ENABLED) // Displays Debug info in the console
             {
