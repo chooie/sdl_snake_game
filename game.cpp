@@ -37,7 +37,7 @@ struct Snake_Part
 
 #define MAX_TAIL_LENGTH 1000
 
-struct State
+struct Gameplay_State
 {
     bool32 game_over;
 
@@ -58,9 +58,9 @@ struct State
     int32 blip_pos_y;
 
     // Overload * operator for scalar multiplication
-    State operator*(real32 scalar) const
+    Gameplay_State operator*(real32 scalar) const
     {
-        State result;
+        Gameplay_State result;
         // result.pos_x = pos_x * scalar;
         // result.pos_y = pos_y * scalar;
         // result.velocity_x = velocity_x * scalar;
@@ -69,9 +69,9 @@ struct State
     }
 
     // Overload + operator for adding two States
-    State operator+(const State& other) const
+    Gameplay_State operator+(const Gameplay_State& other) const
     {
-        State result;
+        Gameplay_State result;
         // NOTE: I've commented this out because I don't think we need linear interpolation for new grid-based approach?
         // result.pos_x = pos_x + other.pos_x;
         // result.pos_y = pos_y + other.pos_y;
@@ -109,7 +109,7 @@ Direction get_next_input()
     return dir;
 }
 
-void simulate(State* state, Audio_Context* audio_context, real64 simulation_time_elapsed, real32 dt_s)
+void simulate(Gameplay_State* state, Audio_Context* audio_context, real64 simulation_time_elapsed, real32 dt_s)
 {
     if (state->game_over)
     {

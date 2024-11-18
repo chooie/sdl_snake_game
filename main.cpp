@@ -89,6 +89,8 @@ uint64 global_cycles_elapsed_after_render;
 uint64 global_total_cycles_elapsed;
 #endif
 
+#define DYNAMIC_SCORE_LENGTH 5
+
 // clang-format off
 #include "input.cpp"
 #include "game.cpp"
@@ -115,7 +117,7 @@ int32 filterEvent(void* userdata, SDL_Event* event)
     return 1;  // Allow other events
 }
 
-void reset_state(State* state)
+void reset_gameplay_state(Gameplay_State* state)
 {
     head = 0;
     tail = 0;
@@ -133,6 +135,14 @@ void reset_state(State* state)
     state->blip_pos_x = X_GRIDS / 2;
     state->blip_pos_y = Y_GRIDS / 2;
 }
+
+enum
+{
+    GAME_STATE__START_SCREEN,
+    GAME_STATE__GAMEPLAY
+};
+
+int32 global_game_state = GAME_STATE__GAMEPLAY;
 
 int32 main(int32 argc, char* argv[])
 {
@@ -218,11 +228,11 @@ int32 main(int32 argc, char* argv[])
     global_paused = 1;
     global_display_debug_info = 0;
 
-    State starting_state = {};
-    reset_state(&starting_state);
+    Gameplay_State starting_state = {};
+    reset_gameplay_state(&starting_state);
 
-    State previous_state = starting_state;
-    State current_state = starting_state;
+    Gameplay_State previous_state = starting_state;
+    Gameplay_State current_state = starting_state;
 
     bool32 is_first_run = 1;
 
@@ -273,8 +283,6 @@ int32 main(int32 argc, char* argv[])
     restart_drawn_text_static.font_size = font_size;
     restart_drawn_text_static.color = white_text_color;
     restart_drawn_text_static.text_rect.x = -LOGICAL_WIDTH; // Draw off-screen initially;
-
-#define DYNAMIC_SCORE_LENGTH 5
 
     char dynamic_score_text[DYNAMIC_SCORE_LENGTH]; // Make sure the buffer is large enough
     Drawn_Text_Int32 score_drawn_text_dynamic = {};
@@ -358,6 +366,13 @@ int32 main(int32 argc, char* argv[])
     sleep_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
 
+    Gameplay_Texts gameplay_texts = {};
+    gameplay_texts.score_drawn_text_static = &score_drawn_text_static;
+    gameplay_texts.score_drawn_text_dynamic = &score_drawn_text_dynamic;
+    gameplay_texts.game_over_drawn_text_static = &game_over_drawn_text_static;
+    gameplay_texts.restart_drawn_text_static = &restart_drawn_text_static;
+    gameplay_texts.game_paused_drawn_text_static = &game_paused_drawn_text_static;
+
     SDL_RenderSetVSync(global_renderer, VSYNC_ENABLED);
 
     while (global_running)
@@ -405,14 +420,14 @@ int32 main(int32 argc, char* argv[])
             }
         }
 
-        State state;
+        Gameplay_State state;
 
         { // Handle Some Input in here?
             if (state.game_over && pressed_local(BUTTON_ENTER))
             {
-                reset_state(&previous_state);
-                reset_state(&current_state);
-                reset_state(&state);
+                reset_gameplay_state(&previous_state);
+                reset_gameplay_state(&current_state);
+                reset_gameplay_state(&state);
             }
         }
 
@@ -491,63 +506,7 @@ int32 main(int32 argc, char* argv[])
             SDL_RenderClear(global_renderer);
 
 #if 1
-            render(&state);
-#if 1
-            { // Render score
-                int32 pt_size = (int32)(0.5f + font_size * global_text_dpi_scale_factor);
-                TTF_Font* font = get_font(pt_size);
-
-                
-                int32 OFFSET = 40;
-                score_drawn_text_static.text_rect.x = LOGICAL_WIDTH - score_drawn_text_static.text_rect.w - OFFSET;
-                score_drawn_text_static.text_rect.y = 0;
-                draw_text_static(&score_drawn_text_static);
-
-                // ==========================
-
-                if (is_first_run || state.next_snake_part_index != score_drawn_text_dynamic.original_value)
-                {
-                    snprintf(dynamic_score_text, DYNAMIC_SCORE_LENGTH, "%d", state.next_snake_part_index);
-                }
-
-                score_drawn_text_dynamic.text_rect.x = score_drawn_text_static.text_rect.x + 5 + score_drawn_text_static.text_rect.w;
-                score_drawn_text_dynamic.text_rect.y = 0; 
-                draw_text_int32(&score_drawn_text_dynamic, is_first_run, state.next_snake_part_index);
-            }
-
-            { // Render Game Over
-                if (state.game_over)
-                {
-                    draw_text_static(&game_over_drawn_text_static);
-                    game_over_drawn_text_static.text_rect.x = LOGICAL_WIDTH / 2;
-                    game_over_drawn_text_static.text_rect.y = LOGICAL_HEIGHT / 2;
-
-                    game_over_drawn_text_static.text_rect.x -= game_over_drawn_text_static.text_rect.w / 2;
-                    game_over_drawn_text_static.text_rect.y -= game_over_drawn_text_static.text_rect.h / 2;
-
-                    draw_text_static(&restart_drawn_text_static);
-                    restart_drawn_text_static.text_rect.x = LOGICAL_WIDTH / 2;
-                    restart_drawn_text_static.text_rect.y = LOGICAL_HEIGHT / 2;
-                    restart_drawn_text_static.text_rect.x -= restart_drawn_text_static.text_rect.w / 2;
-                    restart_drawn_text_static.text_rect.y -= restart_drawn_text_static.text_rect.h / 2;
-
-                    // Place text under other text
-                    restart_drawn_text_static.text_rect.y += game_over_drawn_text_static.text_rect.h;
-                }
-            }
-
-            {  // Render Game Paused
-                if (global_paused)
-                {
-                    draw_text_static(&game_paused_drawn_text_static);
-                    game_paused_drawn_text_static.text_rect.x = LOGICAL_WIDTH / 2;
-                    game_paused_drawn_text_static.text_rect.y = LOGICAL_HEIGHT / 2;
-
-                    game_paused_drawn_text_static.text_rect.x -= game_paused_drawn_text_static.text_rect.w / 2;
-                    game_paused_drawn_text_static.text_rect.y -= game_paused_drawn_text_static.text_rect.h / 2;
-                }
-            }
-#endif
+            render(&state, &gameplay_texts, is_first_run);
 #endif
             if (TEXT_DEBUGGING_ENABLED) // Displays Debug info in the console
             {

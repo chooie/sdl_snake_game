@@ -9,7 +9,8 @@ struct Color_RGBA
     uint8 alpha;
 };
 
-void draw_rect(SDL_Rect rect, SDL_Color color) {
+void draw_rect(SDL_Rect rect, SDL_Color color)
+{
     SDL_SetRenderDrawColor(global_renderer, color.r, color.g, color.b, color.a);
     SDL_RenderFillRect(global_renderer, &rect);
 }
@@ -17,7 +18,8 @@ void draw_rect(SDL_Rect rect, SDL_Color color) {
 #define MAX_FONTS 100  // Define a maximum number of cached fonts
 
 // Define a struct to represent a key-value pair
-typedef struct {
+typedef struct
+{
     int pt_size;
     TTF_Font* font;
 } FontEntry;
@@ -102,6 +104,7 @@ struct Drawn_Text_Static
     SDL_Rect text_rect;
     SDL_Texture* cached_texture;
 };
+
 void draw_text_static(Drawn_Text_Static* drawn_text)
 {
     if (!drawn_text->cached_texture)
@@ -130,7 +133,8 @@ void draw_text_real32(Drawn_Text* drawn_text, bool32 is_first_run, real32 curren
     {
         drawn_text->original_value = current_value;
 
-        if (drawn_text->cached_texture) {
+        if (drawn_text->cached_texture)
+        {
             // Cleanup
             SDL_DestroyTexture(drawn_text->cached_texture);
             drawn_text->cached_texture = 0;
@@ -160,7 +164,8 @@ void draw_text_int32(Drawn_Text_Int32* drawn_text, bool32 is_first_run, int32 cu
     {
         drawn_text->original_value = current_value;
 
-        if (drawn_text->cached_texture) {
+        if (drawn_text->cached_texture)
+        {
             // Cleanup
             SDL_DestroyTexture(drawn_text->cached_texture);
             drawn_text->cached_texture = 0;
@@ -184,13 +189,13 @@ void draw_text_int32(Drawn_Text_Int32* drawn_text, bool32 is_first_run, int32 cu
     SDL_RenderCopy(global_renderer, drawn_text->cached_texture, NULL, &drawn_text->text_rect);
 }
 
-struct Screen_Space_Position {
+struct Screen_Space_Position
+{
     real32 x;
     real32 y;
 };
 
-Screen_Space_Position
-map_world_space_position_to_screen_space_position(real32 world_x, real32 world_y)
+Screen_Space_Position map_world_space_position_to_screen_space_position(real32 world_x, real32 world_y)
 {
     Screen_Space_Position result = {};
     real32 actual_x = world_x * GRID_BLOCK_SIZE;
@@ -219,7 +224,8 @@ void create_grid_texture(SDL_Renderer* renderer)
     int grid_height = Y_GRIDS * GRID_BLOCK_SIZE;
 
     // Create the texture
-    grid_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, grid_width, grid_height);
+    grid_texture =
+        SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, grid_width, grid_height);
     if (!grid_texture)
     {
         fprintf(stderr, "Failed to create grid texture: %s\n", SDL_GetError());
@@ -276,7 +282,16 @@ void render_grid(SDL_Renderer* renderer)
     SDL_RenderCopy(renderer, grid_texture, NULL, NULL);
 }
 
-void render(State* state)
+struct Gameplay_Texts
+{
+    Drawn_Text_Static* score_drawn_text_static;
+    Drawn_Text_Int32* score_drawn_text_dynamic;
+    Drawn_Text_Static* game_over_drawn_text_static;
+    Drawn_Text_Static* restart_drawn_text_static;
+    Drawn_Text_Static* game_paused_drawn_text_static;
+};
+
+void render(Gameplay_State* state, Gameplay_Texts* gameplay_texts, bool32 is_first_run)
 {
     // NOTE: We need this to distinguish the 'usable canvas' from the black dead-space (due to differing aspect ratios)
     SDL_Rect drawable_canvas;
@@ -294,7 +309,7 @@ void render(State* state)
 
     render_grid(global_renderer);
 
-    { // Draw Blip
+    {  // Draw Blip
         Screen_Space_Position square_screen_pos =
             map_world_space_position_to_screen_space_position(state->blip_pos_x, state->blip_pos_y);
 
@@ -310,7 +325,7 @@ void render(State* state)
         draw_rect(square, color);
     }
 
-    { // Draw Player
+    {  // Draw Player
         Screen_Space_Position square_screen_pos =
             map_world_space_position_to_screen_space_position(state->pos_x, state->pos_y);
 
@@ -337,6 +352,70 @@ void render(State* state)
 
             SDL_Color darkened_red = {154, 63, 59, 255};
             draw_rect(square, darkened_red);
+        }
+    }
+
+    {  // Render score
+        int32 OFFSET = 40;
+        gameplay_texts->score_drawn_text_static->text_rect.x =
+            LOGICAL_WIDTH - gameplay_texts->score_drawn_text_static->text_rect.w - OFFSET;
+        gameplay_texts->score_drawn_text_static->text_rect.y = 0;
+        draw_text_static(gameplay_texts->score_drawn_text_static);
+
+        // ==========================
+
+        if (is_first_run || state->next_snake_part_index != gameplay_texts->score_drawn_text_dynamic->original_value)
+        {
+            snprintf(gameplay_texts->score_drawn_text_dynamic->text_string,
+                     DYNAMIC_SCORE_LENGTH,
+                     "%d",
+                     state->next_snake_part_index);
+        }
+
+        gameplay_texts->score_drawn_text_dynamic->text_rect.x = gameplay_texts->score_drawn_text_static->text_rect.x +
+                                                                5 +
+                                                                gameplay_texts->score_drawn_text_static->text_rect.w;
+        gameplay_texts->score_drawn_text_dynamic->text_rect.y = 0;
+        draw_text_int32(gameplay_texts->score_drawn_text_dynamic, is_first_run, state->next_snake_part_index);
+    }
+
+    {  // Render Game Over
+        if (state->game_over)
+        {
+            draw_text_static(gameplay_texts->game_over_drawn_text_static);
+            gameplay_texts->game_over_drawn_text_static->text_rect.x = LOGICAL_WIDTH / 2;
+            gameplay_texts->game_over_drawn_text_static->text_rect.y = LOGICAL_HEIGHT / 2;
+
+            gameplay_texts->game_over_drawn_text_static->text_rect.x -=
+                gameplay_texts->game_over_drawn_text_static->text_rect.w / 2;
+            gameplay_texts->game_over_drawn_text_static->text_rect.y -=
+                gameplay_texts->game_over_drawn_text_static->text_rect.h / 2;
+
+            draw_text_static(gameplay_texts->restart_drawn_text_static);
+            gameplay_texts->restart_drawn_text_static->text_rect.x = LOGICAL_WIDTH / 2;
+            gameplay_texts->restart_drawn_text_static->text_rect.y = LOGICAL_HEIGHT / 2;
+            gameplay_texts->restart_drawn_text_static->text_rect.x -=
+                gameplay_texts->restart_drawn_text_static->text_rect.w / 2;
+            gameplay_texts->restart_drawn_text_static->text_rect.y -=
+                gameplay_texts->restart_drawn_text_static->text_rect.h / 2;
+
+            // Place text under other text
+            gameplay_texts->restart_drawn_text_static->text_rect.y +=
+                gameplay_texts->game_over_drawn_text_static->text_rect.h;
+        }
+    }
+
+    {  // Render Game Paused
+        if (global_paused)
+        {
+            draw_text_static(gameplay_texts->game_paused_drawn_text_static);
+            gameplay_texts->game_paused_drawn_text_static->text_rect.x = LOGICAL_WIDTH / 2;
+            gameplay_texts->game_paused_drawn_text_static->text_rect.y = LOGICAL_HEIGHT / 2;
+
+            gameplay_texts->game_paused_drawn_text_static->text_rect.x -=
+                gameplay_texts->game_paused_drawn_text_static->text_rect.w / 2;
+            gameplay_texts->game_paused_drawn_text_static->text_rect.y -=
+                gameplay_texts->game_paused_drawn_text_static->text_rect.h / 2;
         }
     }
 }
