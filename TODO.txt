@@ -40,6 +40,13 @@ TODO
     / Start speeding up as more blips are eaten
 / Play sound
 ? Game menu
+    / Show game paused when I pause
+    ? Game intro screen
+        - State: Game Screen | Gameplay
+        - Game Screen:
+            - Snake Game
+            - Start Game
+            - Exit
 
 Nice-to-haves
 --------------
@@ -47,6 +54,8 @@ Nice-to-haves
 ? Add 'grace period' when colliding with wall or self
     - The user should have a chance of like 1 second or so where they can turn to save themselves
 ? Rebindable keys
+? Volume controls
+? FPS controls
 
 Cleanup/Best-practice
 -------

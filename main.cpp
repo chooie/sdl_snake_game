@@ -250,6 +250,14 @@ int32 main(int32 argc, char* argv[])
     score_drawn_text_static.font_size = font_size;
     score_drawn_text_static.color = white_text_color;
 
+    Drawn_Text_Static game_paused_drawn_text_static = {};
+    {
+        game_paused_drawn_text_static.text_string = "GAME PAUSED";
+    }
+    game_paused_drawn_text_static.font_size = font_size * 2.f;
+    game_paused_drawn_text_static.color = white_text_color;
+    game_paused_drawn_text_static.text_rect.x = -LOGICAL_WIDTH; // Draw off-screen initially;
+
     Drawn_Text_Static game_over_drawn_text_static = {};
     {
         game_over_drawn_text_static.text_string = "GAME OVER";
@@ -525,6 +533,18 @@ int32 main(int32 argc, char* argv[])
 
                     // Place text under other text
                     restart_drawn_text_static.text_rect.y += game_over_drawn_text_static.text_rect.h;
+                }
+            }
+
+            {  // Render Game Paused
+                if (global_paused)
+                {
+                    draw_text_static(&game_paused_drawn_text_static);
+                    game_paused_drawn_text_static.text_rect.x = LOGICAL_WIDTH / 2;
+                    game_paused_drawn_text_static.text_rect.y = LOGICAL_HEIGHT / 2;
+
+                    game_paused_drawn_text_static.text_rect.x -= game_paused_drawn_text_static.text_rect.w / 2;
+                    game_paused_drawn_text_static.text_rect.y -= game_paused_drawn_text_static.text_rect.h / 2;
                 }
             }
 #endif
