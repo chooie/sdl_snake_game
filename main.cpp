@@ -377,57 +377,63 @@ int32 main(int32 argc, char* argv[])
 
     while (global_running)
     {
-        if (is_first_run) {
-            play_music(&audio_ctx);
-            set_music_volume(10.f);
-        }
-
         real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.time_elapsed_for_work__seconds;
         real32 LAST_frame_time_elapsed_for_writing_buffer__seconds = master_timer.time_elapsed_for_writing_buffer__seconds;
         real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.time_elapsed_for_render__seconds;
         real32 LAST_frame_time_elapsed_for_sleep__seconds = master_timer.time_elapsed_for_sleep__seconds;
         real32 total_LAST_frame_time_elapsed__seconds = master_timer.total_frame_time_elapsed__seconds;
 
+//==============================
+// TIMING
 #ifdef __WIN32__
         uint64 global_cycle_count_now = __rdtsc();
         global_cycles_elapsed_before_render = global_cycle_count_now - global_last_cycle_count;
 #endif
-
         Uint64 counter_now = SDL_GetPerformanceCounter();
+//==============================
 
-        handle_input(&event, &input);
-
-        if (!global_paused) {
-
-            if (pressed_local(BUTTON_W) || pressed_local(BUTTON_UP))
-            {
-                add_input(DIRECTION_NORTH);
-            }
-
-            if (pressed_local(BUTTON_A) || pressed_local(BUTTON_LEFT))
-            {
-                add_input(DIRECTION_WEST);
-            }
-
-            if (pressed_local(BUTTON_S) || pressed_local(BUTTON_DOWN))
-            {
-                add_input(DIRECTION_SOUTH);
-            }
-
-            if (pressed_local(BUTTON_D) || pressed_local(BUTTON_RIGHT))
-            {
-                add_input(DIRECTION_EAST);
-            }
+        if (is_first_run) {
+            play_music(&audio_ctx);
+            set_music_volume(10.f);
         }
 
         Gameplay_State state;
 
-        { // Handle Some Input in here?
-            if (state.game_over && pressed_local(BUTTON_ENTER))
+        { // Input Handling
+            handle_input(&event, &input);
+
+            if (global_game_state == GAME_STATE__GAMEPLAY)
             {
-                reset_gameplay_state(&previous_state);
-                reset_gameplay_state(&current_state);
-                reset_gameplay_state(&state);
+                if (!global_paused)
+                {
+                    if (pressed_local(BUTTON_W) || pressed_local(BUTTON_UP))
+                    {
+                        add_input(DIRECTION_NORTH);
+                    }
+
+                    if (pressed_local(BUTTON_A) || pressed_local(BUTTON_LEFT))
+                    {
+                        add_input(DIRECTION_WEST);
+                    }
+
+                    if (pressed_local(BUTTON_S) || pressed_local(BUTTON_DOWN))
+                    {
+                        add_input(DIRECTION_SOUTH);
+                    }
+
+                    if (pressed_local(BUTTON_D) || pressed_local(BUTTON_RIGHT))
+                    {
+                        add_input(DIRECTION_EAST);
+                    }
+                }
+
+                if (state.game_over && pressed_local(BUTTON_ENTER))
+                {
+                    reset_gameplay_state(&previous_state);
+                    reset_gameplay_state(&current_state);
+                    reset_gameplay_state(&state);
+                    global_paused = 1;
+                }
             }
         }
 
@@ -473,41 +479,24 @@ int32 main(int32 argc, char* argv[])
                     global_debug_counter = 0;
                 }
             }
-
-#if 0 // Eat CPU time to test debug stuff
-            {  // Eat CPU time
-                uint64 target_cycles = (uint64)(0.01 * 1000.0f * 1000.0f * 1000.0f); // Adjust this to simulate the desired load
-                uint64 start_cycles = __rdtsc();
-
-                while (true) {
-                    // Perform some dummy operations to keep the CPU busy
-                    volatile uint32 dummy = 0;
-                    for (uint32 i = 0; i < 1000; ++i) {
-                        dummy += i;
-                    }
-
-                    // Check the current cycle count
-                    uint64 current_cycles = __rdtsc();
-                    if ((current_cycles - start_cycles) >= target_cycles) {
-                        break;
-                    }
-                }
-            }
-#endif
         }
 
+//==============================
+// TIMING
         Uint64 counter_after_work = SDL_GetPerformanceCounter();
         master_timer.time_elapsed_for_work__seconds =
             ((real32)(counter_after_work - counter_now) / (real32)master_timer.COUNTER_FREQUENCY);
-
+//==============================
         { // Write to render buffer
             // Clear the screen
             SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
             SDL_RenderClear(global_renderer);
 
-#if 1
-            render_gameplay(&state, &gameplay_texts, is_first_run);
-#endif
+            if (global_game_state == GAME_STATE__GAMEPLAY)
+            {
+                render_gameplay(&state, &gameplay_texts, is_first_run);
+            }
+
             if (TEXT_DEBUGGING_ENABLED) // Displays Debug info in the console
             {
                 { // FPS
@@ -778,15 +767,19 @@ int32 main(int32 argc, char* argv[])
         }
 #endif
 
+//==============================
+// TIMING
+
 #ifdef __WIN32__
         uint64 global_cycle_count_after_render = __rdtsc();
         global_cycles_elapsed_after_render = global_cycle_count_after_render - global_cycle_count_now;
 #endif
-
         Uint64 counter_after_render = SDL_GetPerformanceCounter();
         master_timer.time_elapsed_for_render__seconds =
             ((real32)(counter_after_render - counter_after_writing_buffer) / (real32)master_timer.COUNTER_FREQUENCY);
-#if 1
+//==============================
+
+#if 1 // Sleep
         { // Sleep
             uint64 MICRO = 1000000;
             const Uint64 TARGET_FRAME_DURATION = MICRO / TARGET_SCREEN_FPS;  // In microseconds
@@ -814,11 +807,13 @@ int32 main(int32 argc, char* argv[])
         }
 #endif
 
+//==============================
+// TIMING
+
 #ifdef __WIN32__
         uint64 global_end_cycle_count_after_delay = __rdtsc();
         global_total_cycles_elapsed = global_end_cycle_count_after_delay - global_last_cycle_count;
 #endif
-
         Uint64 counter_after_sleep = SDL_GetPerformanceCounter();
         master_timer.time_elapsed_for_sleep__seconds =
             ((real32)(counter_after_sleep - counter_after_render) / (real32)master_timer.COUNTER_FREQUENCY);
@@ -827,10 +822,10 @@ int32 main(int32 argc, char* argv[])
 
         // Next iteration
         master_timer.last_frame_counter = counter_after_sleep;
-
 #ifdef __WIN32__
         global_last_cycle_count = global_end_cycle_count_after_delay;
 #endif
+//==============================
 
         is_first_run = 0;
     }
