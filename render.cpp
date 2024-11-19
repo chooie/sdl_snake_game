@@ -282,6 +282,39 @@ void render_grid(SDL_Renderer* renderer)
     SDL_RenderCopy(renderer, grid_texture, NULL, NULL);
 }
 
+struct Menu_Texts
+{
+    Drawn_Text_Static* snake_game_text_static;
+};
+
+void render_start_screen(Menu_State* state, Menu_Texts* menu_texts, bool32 is_first_render)
+{
+    // NOTE: We need this to distinguish the 'usable canvas' from the black dead-space (due to differing aspect ratios)
+    SDL_Rect drawable_canvas;
+    drawable_canvas.x = 0;
+    drawable_canvas.y = 0;
+    drawable_canvas.w = LOGICAL_WIDTH;
+    drawable_canvas.h = LOGICAL_HEIGHT;
+
+    // Set the clip rectangle to restrict rendering
+    SDL_RenderSetClipRect(global_renderer, &drawable_canvas);
+
+    // Use a neutral background color to not cause too much eye strain
+    SDL_SetRenderDrawColor(global_renderer, 40, 40, 40, 255);
+    SDL_RenderFillRect(global_renderer, &drawable_canvas);
+
+    {  // Render Snake Game
+        draw_text_static(menu_texts->snake_game_text_static);
+        menu_texts->snake_game_text_static->text_rect.x = LOGICAL_WIDTH / 2;
+        menu_texts->snake_game_text_static->text_rect.y = LOGICAL_HEIGHT / 2;
+
+        menu_texts->snake_game_text_static->text_rect.x -=
+            menu_texts->snake_game_text_static->text_rect.w / 2;
+        menu_texts->snake_game_text_static->text_rect.y -=
+            menu_texts->snake_game_text_static->text_rect.h / 2;
+    }
+}
+
 struct Gameplay_Texts
 {
     Drawn_Text_Static* score_drawn_text_static;
@@ -291,7 +324,7 @@ struct Gameplay_Texts
     Drawn_Text_Static* game_paused_drawn_text_static;
 };
 
-void render_gameplay(Gameplay_State* state, Gameplay_Texts* gameplay_texts, bool32 is_first_run)
+void render_gameplay(Gameplay_State* state, Gameplay_Texts* gameplay_texts, bool32 is_first_render)
 {
     // NOTE: We need this to distinguish the 'usable canvas' from the black dead-space (due to differing aspect ratios)
     SDL_Rect drawable_canvas;
@@ -364,7 +397,7 @@ void render_gameplay(Gameplay_State* state, Gameplay_Texts* gameplay_texts, bool
 
         // ==========================
 
-        if (is_first_run || state->next_snake_part_index != gameplay_texts->score_drawn_text_dynamic->original_value)
+        if (is_first_render || state->next_snake_part_index != gameplay_texts->score_drawn_text_dynamic->original_value)
         {
             snprintf(gameplay_texts->score_drawn_text_dynamic->text_string,
                      DYNAMIC_SCORE_LENGTH,
@@ -376,7 +409,7 @@ void render_gameplay(Gameplay_State* state, Gameplay_Texts* gameplay_texts, bool
                                                                 5 +
                                                                 gameplay_texts->score_drawn_text_static->text_rect.w;
         gameplay_texts->score_drawn_text_dynamic->text_rect.y = 0;
-        draw_text_int32(gameplay_texts->score_drawn_text_dynamic, is_first_run, state->next_snake_part_index);
+        draw_text_int32(gameplay_texts->score_drawn_text_dynamic, is_first_render, state->next_snake_part_index);
     }
 
     {  // Render Game Over

@@ -39,6 +39,7 @@ struct Snake_Part
 
 struct Gameplay_State
 {
+    bool32 is_first_run;
     bool32 game_over;
 
     int32 pos_x;
