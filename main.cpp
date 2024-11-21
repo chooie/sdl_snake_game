@@ -50,7 +50,6 @@ SDL_Renderer* global_renderer;
 real32 global_text_dpi_scale_factor;
 
 bool32 global_display_debug_info;
-bool32 global_paused;
 
 real32 global_debug_counter;
 
@@ -91,16 +90,27 @@ uint64 global_total_cycles_elapsed;
 
 #define DYNAMIC_SCORE_LENGTH 5
 
-struct Menu_State
-{
-
-};
-
 // clang-format off
 #include "input.cpp"
-#include "game.cpp"
+// #include "game.cpp"
 #include "render.cpp"
 #include "audio.cpp"
+
+typedef struct Scene
+{
+    void (*handle_input)(struct Scene* scene, Input* input);
+    void (*update)(struct Scene* scene, Audio_Context* audio_context, real64 simulation_time_elapsed, real32 dt_s);
+    void (*render)(struct Scene* scene);
+    void* state;  // Pointer to the scene-specific state
+} Scene;
+
+Scene* global_next_scene;
+Scene* global_current_scene;
+Scene global_start_screen_scene;
+Scene global_gameplay_scene;
+
+#include "scenes/start_screen.cpp"
+#include "scenes/gameplay.cpp"
 // clang-format on
 
 int32 filterEvent(void* userdata, SDL_Event* event)
@@ -120,26 +130,6 @@ int32 filterEvent(void* userdata, SDL_Event* event)
         }
     }
     return 1;  // Allow other events
-}
-
-void reset_gameplay_state(Gameplay_State* state)
-{
-    head = 0;
-    tail = 0;
-
-    state->is_first_run = 1;
-    state->game_over = 0;
-
-    state->pos_x = X_GRIDS / 2;
-    state->pos_y = Y_GRIDS / 4;
-    state->current_direction = DIRECTION_NORTH;
-    state->next_snake_part_index = 0;
-
-    state->set_time_until_grid_jump__seconds = .1f;
-    state->time_until_grid_jump__seconds = state->set_time_until_grid_jump__seconds;
-
-    state->blip_pos_x = X_GRIDS / 2;
-    state->blip_pos_y = Y_GRIDS / 2;
 }
 
 enum
@@ -233,17 +223,7 @@ int32 main(int32 argc, char* argv[])
 
     real32 accumulator_s = 0.0f;
 
-    global_paused = 1;
     global_display_debug_info = 0;
-
-    Gameplay_State starting_state = {};
-    reset_gameplay_state(&starting_state);
-
-    Gameplay_State previous_state = starting_state;
-    Gameplay_State current_state = starting_state;
-
-    bool32 is_first_run = 1;
-    bool32 is_first_render = 1;
 
 #ifdef __WIN32__
     // This looks like a function call but it's actually an intrinsic that
@@ -261,45 +241,6 @@ int32 main(int32 argc, char* argv[])
 
     SDL_Color white_text_color = { 255, 255, 255, 255 }; // White color
     real32 font_size = 16.0f;
-
-    Drawn_Text_Static score_drawn_text_static = {};
-    {
-        score_drawn_text_static.text_string = "SCORE";
-    }
-    score_drawn_text_static.font_size = font_size;
-    score_drawn_text_static.color = white_text_color;
-
-    Drawn_Text_Static game_paused_drawn_text_static = {};
-    {
-        game_paused_drawn_text_static.text_string = "GAME PAUSED";
-    }
-    game_paused_drawn_text_static.font_size = font_size * 2.f;
-    game_paused_drawn_text_static.color = white_text_color;
-    game_paused_drawn_text_static.text_rect.x = -LOGICAL_WIDTH; // Draw off-screen initially;
-
-    Drawn_Text_Static game_over_drawn_text_static = {};
-    {
-        game_over_drawn_text_static.text_string = "GAME OVER";
-    }
-    game_over_drawn_text_static.font_size = font_size * 2.f;
-    game_over_drawn_text_static.color = white_text_color;
-    game_over_drawn_text_static.text_rect.x = -LOGICAL_WIDTH; // Draw off-screen initially;
-
-    Drawn_Text_Static restart_drawn_text_static = {};
-    {
-        restart_drawn_text_static.text_string = "Press <Enter> to restart.";
-    }
-    restart_drawn_text_static.font_size = font_size;
-    restart_drawn_text_static.color = white_text_color;
-    restart_drawn_text_static.text_rect.x = -LOGICAL_WIDTH; // Draw off-screen initially;
-
-    char dynamic_score_text[DYNAMIC_SCORE_LENGTH]; // Make sure the buffer is large enough
-    Drawn_Text_Int32 score_drawn_text_dynamic = {};
-    score_drawn_text_dynamic.original_value = 0;
-    score_drawn_text_dynamic.text_string = dynamic_score_text;
-    score_drawn_text_dynamic.font_size = font_size;
-    score_drawn_text_dynamic.color = white_text_color;
-
 
     real32 debug_x_start_offset = (int32)(LOGICAL_WIDTH * 0.01f);
     real32 debug_y_start_offset = (int32)(LOGICAL_HEIGHT * 0.01f);
@@ -375,32 +316,33 @@ int32 main(int32 argc, char* argv[])
     sleep_ms_per_frame_drawn_text.text_rect.y = debug_x_start_offset + y_offset;
     y_offset += vertical_offset;
 
-    Gameplay_Texts gameplay_texts = {};
-    gameplay_texts.score_drawn_text_static = &score_drawn_text_static;
-    gameplay_texts.score_drawn_text_dynamic = &score_drawn_text_dynamic;
-    gameplay_texts.game_over_drawn_text_static = &game_over_drawn_text_static;
-    gameplay_texts.restart_drawn_text_static = &restart_drawn_text_static;
-    gameplay_texts.game_paused_drawn_text_static = &game_paused_drawn_text_static;
-
-    Drawn_Text_Static snake_game_text_static = {};
-    {
-        snake_game_text_static.text_string = "Snake Game";
+    {  // Start Screen Scene
+        global_start_screen_scene = Scene();
+        Start_Screen__State start_screen_state = {};
+        Menu_Texts menu_texts = start_screen__setup_text();
+        start_screen_state.menu_texts = &menu_texts;
+        global_start_screen_scene.state = (void*)&start_screen_state;
+        global_start_screen_scene.handle_input = &start_screen__handle_input;
+        global_start_screen_scene.update = &start_screen__update;
+        global_start_screen_scene.render = &start_screen__render;
     }
-    snake_game_text_static.font_size = font_size * 2.f;
-    snake_game_text_static.color = white_text_color;
-    snake_game_text_static.text_rect.x = -LOGICAL_WIDTH; // Draw off-screen initially;
 
-    Menu_Texts menu_texts = {};
-    menu_texts.snake_game_text_static = &snake_game_text_static;
+    {  // Gameplay Scene
+        global_gameplay_scene = Scene();
+        Gameplay__State gameplay_state = {};
+        gameplay__reset_state(&gameplay_state);
+        Gameplay__Texts gameplay_texts = gameplay__setup_text();
+        gameplay_state.gameplay_texts = &gameplay_texts;
+        global_gameplay_scene.state = (void*)&gameplay_state;
+        global_gameplay_scene.handle_input = &gameplay__handle_input;
+        global_gameplay_scene.update = &gameplay__update;
+        global_gameplay_scene.render = &gameplay__render;
+    }
+
+    global_current_scene = &global_start_screen_scene;
 
     while (global_running)
     {
-        real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.time_elapsed_for_work__seconds;
-        real32 LAST_frame_time_elapsed_for_writing_buffer__seconds = master_timer.time_elapsed_for_writing_buffer__seconds;
-        real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.time_elapsed_for_render__seconds;
-        real32 LAST_frame_time_elapsed_for_sleep__seconds = master_timer.time_elapsed_for_sleep__seconds;
-        real32 total_LAST_frame_time_elapsed__seconds = master_timer.total_frame_time_elapsed__seconds;
-
 //==============================
 // TIMING
 #ifdef __WIN32__
@@ -410,17 +352,23 @@ int32 main(int32 argc, char* argv[])
         Uint64 counter_now = SDL_GetPerformanceCounter();
 //==============================
 
+        real32 LAST_frame_time_elapsed_for_work__seconds = master_timer.time_elapsed_for_work__seconds;
+        real32 LAST_frame_time_elapsed_for_writing_buffer__seconds = master_timer.time_elapsed_for_writing_buffer__seconds;
+        real32 LAST_frame_time_elapsed_for_render__seconds = master_timer.time_elapsed_for_render__seconds;
+        real32 LAST_frame_time_elapsed_for_sleep__seconds = master_timer.time_elapsed_for_sleep__seconds;
+        real32 LAST_total_frame_time_elapsed__seconds = master_timer.total_frame_time_elapsed__seconds;
+
         if (TEXT_DEBUGGING_ENABLED) // Displays Debug info in the console
         {
             {  // FPS
-                real32 fps = 1.0f / total_LAST_frame_time_elapsed__seconds;
+                real32 fps = 1.0f / LAST_total_frame_time_elapsed__seconds;
                 if (global_debug_counter == 0)
                 {
                     printf("FPS: %.1f, ", fps);
                 }
             }
 
-            real32 ms_per_frame = total_LAST_frame_time_elapsed__seconds * 1000.0f;
+            real32 ms_per_frame = LAST_total_frame_time_elapsed__seconds * 1000.0f;
             {  // Total Frame Time (MS)
                 if (global_debug_counter == 0)
                 {
@@ -480,94 +428,50 @@ int32 main(int32 argc, char* argv[])
 #endif
         }
 
-        handle_input(&event, &input);
+        {  // Input and event handling
+            handle_input(&event, &input);
+            global_current_scene->handle_input(global_current_scene, &input);
+        }
 
-        Gameplay_State state_to_render;
-        if (global_game_state == GAME_STATE__GAMEPLAY)
-        {
-            if (current_state.is_first_run) {
-                current_state.is_first_run = 0;
-
-                play_music(&audio_ctx);
-                set_music_volume(10.f);
-            }
-
-            { // Input Handling
-                if (!global_paused)
-                {
-                    if (pressed_local(BUTTON_W) || pressed_local(BUTTON_UP))
-                    {
-                        add_input(DIRECTION_NORTH);
-                    }
-
-                    if (pressed_local(BUTTON_A) || pressed_local(BUTTON_LEFT))
-                    {
-                        add_input(DIRECTION_WEST);
-                    }
-
-                    if (pressed_local(BUTTON_S) || pressed_local(BUTTON_DOWN))
-                    {
-                        add_input(DIRECTION_SOUTH);
-                    }
-
-                    if (pressed_local(BUTTON_D) || pressed_local(BUTTON_RIGHT))
-                    {
-                        add_input(DIRECTION_EAST);
-                    }
-                }
-
-                if (current_state.game_over && pressed_local(BUTTON_ENTER))
-                {
-                    reset_gameplay_state(&previous_state);
-                    reset_gameplay_state(&current_state);
-                    global_paused = 1;
-                }
-            }
-
-            { // Simulation work
-                if (!global_paused)
-                {
-                    // https://gafferongames.com/post/fix_your_timestep/
-                    real32 frame_time_s = master_timer.total_frame_time_elapsed__seconds;
-
-                    if (frame_time_s > 0.25f)
-                    {
-                        // Prevent "spiraling" (excessive frame accumulation) in case of a big lag spike.
-                        frame_time_s = 0.25f;
-                    }
-
-                    accumulator_s += frame_time_s;
-
-                    while (accumulator_s >= SIMULATION_DELTA_TIME_S)
-                    {  // Simulation 'consumes' whatever time is given to it based on the render rate
-                        previous_state = current_state;
-                        simulate(&current_state,
-                                &audio_ctx,
-                                master_timer.physics_simulation_elapsed_time__seconds,
-                                SIMULATION_DELTA_TIME_S);
-                        master_timer.physics_simulation_elapsed_time__seconds += SIMULATION_DELTA_TIME_S;
-                        accumulator_s -= SIMULATION_DELTA_TIME_S;
-                    }
-                }
-
-                real32 alpha = accumulator_s / SIMULATION_DELTA_TIME_S;
-                // Interpolate between the current state and previous state
-                // NOTE: the render always lags by about a frame
-
-                // NOTE: I've commented this out because I don't think we need linear interpolation for new grid-based approach?
-                // state_to_render = current_state * alpha + previous_state * (1.0f - alpha);
-                state_to_render = current_state;
+        {  // Scene Manager
+            if (global_next_scene) {
+                global_current_scene = global_next_scene;
+                global_next_scene = 0;
             }
         }
 
-        Menu_State menu_state;
-        if (global_game_state == GAME_STATE__START_SCREEN)
-        {
-            if (pressed_local(BUTTON_ENTER))
+        { // Update Scene
+            // Gameplay_State state_to_render;
+            // https://gafferongames.com/post/fix_your_timestep/
+            real32 frame_time_s = master_timer.total_frame_time_elapsed__seconds;
+
+            if (frame_time_s > 0.25f)
             {
-                global_game_state = GAME_STATE__GAMEPLAY;
-                is_first_render = 1;
+                // Prevent "spiraling" (excessive frame accumulation) in case of a big lag spike.
+                frame_time_s = 0.25f;
             }
+
+            accumulator_s += frame_time_s;
+
+            while (accumulator_s >= SIMULATION_DELTA_TIME_S)
+            {  // Simulation 'consumes' whatever time is given to it based on the render rate
+                // previous_state = current_state;
+                global_current_scene->update(global_current_scene,
+                                      &audio_ctx,
+                                      master_timer.physics_simulation_elapsed_time__seconds,
+                                      SIMULATION_DELTA_TIME_S);
+                master_timer.physics_simulation_elapsed_time__seconds += SIMULATION_DELTA_TIME_S;
+                accumulator_s -= SIMULATION_DELTA_TIME_S;
+            }
+
+            // TODO: we can do some interpolation here if we ever need to make the rendering a bit smoother
+            // real32 alpha = accumulator_s / SIMULATION_DELTA_TIME_S;
+            // Interpolate between the current state and previous state
+            // NOTE: the render always lags by about a frame
+
+            // NOTE: I've commented this out because I don't think we need linear interpolation for new grid-based approach?
+            // state_to_render = current_state * alpha + previous_state * (1.0f - alpha);
+            // state_to_render = current_state;
         }
 
 //==============================
@@ -582,6 +486,9 @@ int32 main(int32 argc, char* argv[])
             SDL_SetRenderDrawColor(global_renderer, 0, 0, 0, 255);  // Black background
             SDL_RenderClear(global_renderer);
 
+            global_current_scene->render(global_current_scene);
+
+#if 0
             if (global_game_state == GAME_STATE__GAMEPLAY)
             {
                 render_gameplay(&state_to_render, &gameplay_texts, is_first_render);
@@ -590,9 +497,44 @@ int32 main(int32 argc, char* argv[])
 
             if (global_game_state == GAME_STATE__START_SCREEN)
             {
-                render_start_screen(&menu_state, &menu_texts, is_first_render);
+                #if 0
+                SDL_Color yellow = { 255, 255, 0, 255 }; // Yellow
+                SDL_Color white = { 255, 255, 255, 255}; // White
+                SDL_Color current_color = yellow;
+                bool32 marker = 0;
+
+                Start_Screen__State* state = (Start_Screen__State*)current_scene->state;
+                Menu_Texts* menu_texts = state->menu_texts;
+
+                static uint32 last_seconds = 0;
+                // TODO: this is always 0. We need to always have simulate called or handle things differently
+                uint32 seconds = (uint32)master_timer.physics_simulation_elapsed_time__seconds;
+                // printf("%.8f\n", master_timer.physics_simulation_elapsed_time__seconds);
+                // printf("Seconds: %d\n", seconds);
+                if (seconds != last_seconds)
+                {
+                    if (marker == 0)
+                    {
+                        current_color = white;
+                        marker = 1;
+                        printf("Hey\n");
+                    }
+                    else if (marker == 1)
+                    {
+                        current_color = yellow;
+                        marker = 0;
+                        printf("Bye\n");
+                    }
+
+                    menu_texts->start_game_text_static.should_update = 1;
+                    menu_texts->start_game_text_static.color = current_color;
+                }
+                #endif
+
+                start_screen__render(&(*current_scene));
                 is_first_render = 0;
             }
+#endif
 
 #if 1 // Render Debug Info
             if (global_display_debug_info)
@@ -663,17 +605,17 @@ int32 main(int32 argc, char* argv[])
 #endif
 
                 { // FPS
-                    real32 fps = 1.0f / total_LAST_frame_time_elapsed__seconds;
+                    real32 fps = 1.0f / LAST_total_frame_time_elapsed__seconds;
 
                     if (global_debug_counter == 0)
                     {
                         snprintf(fps_text, sizeof(fps_text), "FPS: %.02f", fps);
                     }
 
-                    draw_text_real32(&fps_drawn_text, is_first_run, fps);
+                    draw_text_real32(&fps_drawn_text, fps);
                 }
 
-                real32 ms_per_frame = total_LAST_frame_time_elapsed__seconds * 1000.0f;
+                real32 ms_per_frame = LAST_total_frame_time_elapsed__seconds * 1000.0f;
 
                 { // Total Frame Time (MS)
                     if (global_debug_counter == 0)
@@ -685,7 +627,7 @@ int32 main(int32 argc, char* argv[])
                                  TARGET_TIME_PER_FRAME_MS);
                     }
 
-                    draw_text_real32(&ms_per_frame_drawn_text, is_first_run, ms_per_frame);
+                    draw_text_real32(&ms_per_frame_drawn_text, ms_per_frame);
                 }
 
                 { // Work Frame Time (MS)
@@ -700,7 +642,7 @@ int32 main(int32 argc, char* argv[])
                                  (work_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    draw_text_real32(&work_ms_per_frame_drawn_text, is_first_run, work_ms_per_frame);
+                    draw_text_real32(&work_ms_per_frame_drawn_text, work_ms_per_frame);
                 }
 
                 { // Buffer Writing Time (MS)
@@ -715,7 +657,7 @@ int32 main(int32 argc, char* argv[])
                                  (writing_buffer_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    draw_text_real32(&writing_buffer_ms_per_frame_drawn_text, is_first_run, writing_buffer_ms_per_frame);
+                    draw_text_real32(&writing_buffer_ms_per_frame_drawn_text, writing_buffer_ms_per_frame);
                 }
 
                 { // Render Frame Time (MS)
@@ -730,7 +672,7 @@ int32 main(int32 argc, char* argv[])
                                  (render_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                   draw_text_real32(&render_ms_per_frame_drawn_text, is_first_run, render_ms_per_frame);
+                   draw_text_real32(&render_ms_per_frame_drawn_text, render_ms_per_frame);
                 }
 
                 { // Sleep Frame Time (MS)
@@ -745,7 +687,7 @@ int32 main(int32 argc, char* argv[])
                                  (sleep_ms_per_frame / ms_per_frame) * 100);
                     }
 
-                    draw_text_real32(&sleep_ms_per_frame_drawn_text, is_first_run, sleep_ms_per_frame);
+                    draw_text_real32(&sleep_ms_per_frame_drawn_text, sleep_ms_per_frame);
                 }
             }
 #endif
@@ -829,8 +771,6 @@ int32 main(int32 argc, char* argv[])
             }
         }
 #endif
-
-        is_first_run = 0;
 
         {  // Tick debug text counter
             global_debug_counter += master_timer.total_frame_time_elapsed__seconds;

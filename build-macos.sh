@@ -1,3 +1,6 @@
+# Turn off Mac OS verbose logging
+export NSUnbufferedIO=NO
+
 # Check if the build directory exists
 if [ ! -d "build" ]; then
   echo "Creating build directory and copying .dylib files..."

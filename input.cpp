@@ -150,9 +150,4 @@ void handle_input(SDL_Event* event, Input* input)
             break;
         }
     }
-
-    if (pressed(BUTTON_SPACE))
-    {
-        global_paused = !global_paused;
-    }
 }
