@@ -322,6 +322,7 @@ int32 main(int32 argc, char* argv[])
         Menu_Texts menu_texts = start_screen__setup_text();
         start_screen_state.menu_texts = &menu_texts;
         global_start_screen_scene.state = (void*)&start_screen_state;
+        start_screen__reset_state(&global_start_screen_scene);
         global_start_screen_scene.handle_input = &start_screen__handle_input;
         global_start_screen_scene.update = &start_screen__update;
         global_start_screen_scene.render = &start_screen__render;
@@ -330,10 +331,10 @@ int32 main(int32 argc, char* argv[])
     {  // Gameplay Scene
         global_gameplay_scene = Scene();
         Gameplay__State gameplay_state = {};
-        gameplay__reset_state(&gameplay_state);
         Gameplay__Texts gameplay_texts = gameplay__setup_text();
         gameplay_state.gameplay_texts = &gameplay_texts;
         global_gameplay_scene.state = (void*)&gameplay_state;
+        gameplay__reset_state(&global_gameplay_scene);
         global_gameplay_scene.handle_input = &gameplay__handle_input;
         global_gameplay_scene.update = &gameplay__update;
         global_gameplay_scene.render = &gameplay__render;

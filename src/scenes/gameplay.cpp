@@ -107,8 +107,10 @@ Direction get_next_input()
     return dir;
 }
 
-void gameplay__reset_state(Gameplay__State* state)
+void gameplay__reset_state(Scene* scene)
 {
+    Gameplay__State* state = (Gameplay__State*)scene->state;
+
     head = 0;
     tail = 0;
 
@@ -219,7 +221,7 @@ void gameplay__handle_input(Scene* scene, Input* input)
 
     if (state->game_over && pressed(BUTTON_ENTER))
     {
-        gameplay__reset_state(state);
+        gameplay__reset_state(scene);
         state->is_paused = 0;
     }
 }

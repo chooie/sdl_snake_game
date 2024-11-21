@@ -10,11 +10,26 @@ SDL_Color yellow = {255, 255, 0, 255};   // Yellow
 SDL_Color white = {255, 255, 255, 255};  // White
 SDL_Color current_color = yellow;
 
+typedef enum
+{
+    Option__Start_Game,
+    Option__Exit_Game,
+} Start_Screen__Options;
+
 struct Start_Screen__State
 {
     Menu_Texts* menu_texts;
     SDL_Color blink_color;
+    Start_Screen__Options current_option;
 };
+
+void start_screen__reset_state(Scene* scene)
+{
+    Start_Screen__State* state = (Start_Screen__State*)scene->state;
+    SDL_Color white_text_color = {255, 255, 255, 255};  // White color
+    state->blink_color = white_text_color;
+    state->current_option = Option__Start_Game;
+}
 
 Menu_Texts start_screen__setup_text()
 {
