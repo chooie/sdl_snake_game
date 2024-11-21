@@ -142,6 +142,14 @@ void draw_text_static_2(Drawn_Text_Static_2* drawn_text)
     if (!drawn_text->cached_texture || drawn_text->should_update)
     {
         drawn_text->should_update = 0;
+
+        if (drawn_text->cached_texture)
+        {
+            // Cleanup
+            SDL_DestroyTexture(drawn_text->cached_texture);
+            drawn_text->cached_texture = 0;
+        }
+
         SDL_assert(drawn_text->font_size > 0);
         int32 pt_size = get_font_pt_size(drawn_text->font_size);
         TTF_Font* font = get_font(pt_size);
