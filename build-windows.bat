@@ -22,7 +22,7 @@ if "%hour:~0,1%" == " " set hour=0%hour:~1,1%
 rem Create the timestamp
 set timestamp=%date:~-4,4%%date:~-10,2%%date:~-7,2%_%hour%%time:~3,2%%time:~6,2%
 rem Set the filename
-set filename=sdl_starter%timestamp%.pdb
+set filename=sdl_snake_game%timestamp%.pdb
 
 del %BUILD_DIR%\*.pdb > NUL 2> NUL
 set INCLUDE_PATH=%~dp0vendor\SDL2\windows\visual_studio\x64\include

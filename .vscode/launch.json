@@ -5,7 +5,7 @@
             "name": "LLDB",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/build/sdl_starter",
+            "program": "${workspaceFolder}/build/sdl_snake_game",
             "args": [],
             "cwd": "${workspaceFolder}",
             "terminal": "integrated"

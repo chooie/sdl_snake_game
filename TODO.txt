@@ -39,9 +39,9 @@ TODO
         / Can restart the game
     / Start speeding up as more blips are eaten
 / Play sound
-? Game menu
+/ Game menu
     / Show game paused when I pause
-    ? Game intro screen
+    / Game intro screen
         - State: Game Screen | Gameplay
         - Game Screen:
             - Snake Game

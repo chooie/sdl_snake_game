@@ -6,7 +6,7 @@ function rl {
 }
 
 function sdl {
-    Set-Location W:\sdl_starter
+    Set-Location W:\sdl_snake_game
 }
 
 function rb {
@@ -20,11 +20,11 @@ function rb {
 }
 
 function run {
-    Start-Process "W:\sdl_starter\build\main.exe"
+    Start-Process "W:\sdl_snake_game\build\main.exe"
 }
 
 function b {
-    W:\sdl_starter\build-windows.bat
+    W:\sdl_snake_game\build-windows.bat
 }
 
 function hm {

@@ -10,16 +10,16 @@ if [ ! -d "build" ]; then
   cp -P vendor/SDL2/macos/lib/*.dylib build/
 fi
 
-g++ -g -Wno-switch -I vendor/SDL2/macos/include -L vendor/SDL2/macos/lib -o build/sdl_starter src/main.cpp -lSDL2 -lSDL2_ttf -lSDL2_mixer
+g++ -g -Wno-switch -I vendor/SDL2/macos/include -L vendor/SDL2/macos/lib -o build/sdl_snake_game src/main.cpp -lSDL2 -lSDL2_ttf -lSDL2_mixer
 
 # SDL2
-install_name_tool -change /usr/local/opt/sdl2/lib/libSDL2-2.0.0.dylib @executable_path/libSDL2.dylib build/sdl_starter
+install_name_tool -change /usr/local/opt/sdl2/lib/libSDL2-2.0.0.dylib @executable_path/libSDL2.dylib build/sdl_snake_game
 
 # SDL2_ttf
-install_name_tool -change /usr/local/opt/sdl2_ttf/lib/libSDL2_ttf-2.0.0.dylib @executable_path/libSDL2_ttf.dylib build/sdl_starter
+install_name_tool -change /usr/local/opt/sdl2_ttf/lib/libSDL2_ttf-2.0.0.dylib @executable_path/libSDL2_ttf.dylib build/sdl_snake_game
 
 # SDL2_mixer
-install_name_tool -change /usr/local/opt/sdl2_mixer/lib/libSDL2_mixer-2.0.0.dylib @executable_path/libSDL2_mixer-2.0.0.dylib build/sdl_starter
+install_name_tool -change /usr/local/opt/sdl2_mixer/lib/libSDL2_mixer-2.0.0.dylib @executable_path/libSDL2_mixer-2.0.0.dylib build/sdl_snake_game
 
 # Update paths for SDL2_mixer dependencies
 echo "Patching SDL2_mixer dependencies..."
