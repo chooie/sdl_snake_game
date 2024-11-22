@@ -16,17 +16,22 @@ bool32 audio_init(Audio_Context* ctx)
         fprintf(stderr, "Failed to load background music! Mix_Error: %s\n", Mix_GetError());
     }
 
-    // ctx->effect_beep = Mix_LoadWAV("sounds/beep.wav");
-    ctx->effect_beep = Mix_LoadWAV("sounds/beep-2.mp3");
-
+    ctx->effect_beep = Mix_LoadWAV("sounds/beep.wav");
     if (!ctx->effect_beep)
     {
         fprintf(stderr, "Failed to load beep sound effect! Mix_Error: %s\n", Mix_GetError());
     }
 
+    ctx->effect_beep_2 = Mix_LoadWAV("sounds/beep-2.mp3");
+
+    if (!ctx->effect_beep_2)
+    {
+        fprintf(stderr, "Failed to load beep 2 sound effect! Mix_Error: %s\n", Mix_GetError());
+    }
+
     ctx->effect_boom = Mix_LoadWAV("sounds/boom.mp3");
 
-    if (!ctx->effect_beep)
+    if (!ctx->effect_beep_2)
     {
         fprintf(stderr, "Failed to load boom sound effect! Mix_Error: %s\n", Mix_GetError());
     }
@@ -43,6 +48,10 @@ void audio_cleanup(Audio_Context* ctx)
     if (ctx->effect_beep)
     {
         Mix_FreeChunk(ctx->effect_beep);
+    }
+    if (ctx->effect_beep_2)
+    {
+        Mix_FreeChunk(ctx->effect_beep_2);
     }
     Mix_CloseAudio();
 }

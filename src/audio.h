@@ -8,6 +8,7 @@ typedef struct
 {
     Mix_Music* background_music;
     Mix_Chunk* effect_beep;
+    Mix_Chunk* effect_beep_2;
     Mix_Chunk* effect_boom;
 } Audio_Context;
 

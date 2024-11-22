@@ -98,8 +98,9 @@ uint64 global_total_cycles_elapsed;
 
 typedef struct Scene
 {
+    void (*reset_state)(struct Scene* scene);
     void (*handle_input)(struct Scene* scene, Input* input);
-    void (*update)(struct Scene* scene, Audio_Context* audio_context, real64 simulation_time_elapsed, real32 dt_s);
+    void (*update)(struct Scene* scene, real64 simulation_time_elapsed, real32 dt_s);
     void (*render)(struct Scene* scene);
     void* state;  // Pointer to the scene-specific state
 } Scene;
@@ -108,6 +109,8 @@ Scene* global_next_scene;
 Scene* global_current_scene;
 Scene global_start_screen_scene;
 Scene global_gameplay_scene;
+
+Audio_Context global_audio_context;
 
 #include "scenes/start_screen.cpp"
 #include "scenes/gameplay.cpp"
@@ -132,14 +135,6 @@ int32 filterEvent(void* userdata, SDL_Event* event)
     return 1;  // Allow other events
 }
 
-enum
-{
-    GAME_STATE__START_SCREEN,
-    GAME_STATE__GAMEPLAY
-};
-
-int32 global_game_state = GAME_STATE__START_SCREEN;
-
 int32 main(int32 argc, char* argv[])
 {
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -160,8 +155,7 @@ int32 main(int32 argc, char* argv[])
         return 1;
     }
 
-    Audio_Context audio_ctx;
-    if (!audio_init(&audio_ctx)) {
+    if (!audio_init(&global_audio_context)) {
         fprintf(stderr, "Failed to initialize audio.\n");
         SDL_Quit();
         return -1;
@@ -323,6 +317,7 @@ int32 main(int32 argc, char* argv[])
         start_screen_state.menu_texts = &menu_texts;
         global_start_screen_scene.state = (void*)&start_screen_state;
         start_screen__reset_state(&global_start_screen_scene);
+        global_start_screen_scene.reset_state = &start_screen__reset_state;
         global_start_screen_scene.handle_input = &start_screen__handle_input;
         global_start_screen_scene.update = &start_screen__update;
         global_start_screen_scene.render = &start_screen__render;
@@ -335,6 +330,7 @@ int32 main(int32 argc, char* argv[])
         gameplay_state.gameplay_texts = &gameplay_texts;
         global_gameplay_scene.state = (void*)&gameplay_state;
         gameplay__reset_state(&global_gameplay_scene);
+        global_gameplay_scene.reset_state = &gameplay__reset_state;
         global_gameplay_scene.handle_input = &gameplay__handle_input;
         global_gameplay_scene.update = &gameplay__update;
         global_gameplay_scene.render = &gameplay__render;
@@ -437,6 +433,7 @@ int32 main(int32 argc, char* argv[])
         {  // Scene Manager
             if (global_next_scene) {
                 global_current_scene = global_next_scene;
+                global_current_scene->reset_state(global_current_scene);
                 global_next_scene = 0;
             }
         }
@@ -458,7 +455,6 @@ int32 main(int32 argc, char* argv[])
             {  // Simulation 'consumes' whatever time is given to it based on the render rate
                 // previous_state = current_state;
                 global_current_scene->update(global_current_scene,
-                                      &audio_ctx,
                                       master_timer.physics_simulation_elapsed_time__seconds,
                                       SIMULATION_DELTA_TIME_S);
                 master_timer.physics_simulation_elapsed_time__seconds += SIMULATION_DELTA_TIME_S;
@@ -488,54 +484,6 @@ int32 main(int32 argc, char* argv[])
             SDL_RenderClear(global_renderer);
 
             global_current_scene->render(global_current_scene);
-
-#if 0
-            if (global_game_state == GAME_STATE__GAMEPLAY)
-            {
-                render_gameplay(&state_to_render, &gameplay_texts, is_first_render);
-                is_first_render = 0;
-            }
-
-            if (global_game_state == GAME_STATE__START_SCREEN)
-            {
-                #if 0
-                SDL_Color yellow = { 255, 255, 0, 255 }; // Yellow
-                SDL_Color white = { 255, 255, 255, 255}; // White
-                SDL_Color current_color = yellow;
-                bool32 marker = 0;
-
-                Start_Screen__State* state = (Start_Screen__State*)current_scene->state;
-                Menu_Texts* menu_texts = state->menu_texts;
-
-                static uint32 last_seconds = 0;
-                // TODO: this is always 0. We need to always have simulate called or handle things differently
-                uint32 seconds = (uint32)master_timer.physics_simulation_elapsed_time__seconds;
-                // printf("%.8f\n", master_timer.physics_simulation_elapsed_time__seconds);
-                // printf("Seconds: %d\n", seconds);
-                if (seconds != last_seconds)
-                {
-                    if (marker == 0)
-                    {
-                        current_color = white;
-                        marker = 1;
-                        printf("Hey\n");
-                    }
-                    else if (marker == 1)
-                    {
-                        current_color = yellow;
-                        marker = 0;
-                        printf("Bye\n");
-                    }
-
-                    menu_texts->start_game_text_static.should_update = 1;
-                    menu_texts->start_game_text_static.color = current_color;
-                }
-                #endif
-
-                start_screen__render(&(*current_scene));
-                is_first_render = 0;
-            }
-#endif
 
 #if 1 // Render Debug Info
             if (global_display_debug_info)
@@ -745,23 +693,23 @@ int32 main(int32 argc, char* argv[])
             ((real32)(counter_after_render - counter_after_writing_buffer) / (real32)master_timer.COUNTER_FREQUENCY);
 //==============================
 
-#if 1 // Sleep
+#if 1 // Sleep with busy-wait for precise timings
         {
-            uint64 MICRO = 1000000;
-            const Uint64 TARGET_FRAME_DURATION = MICRO / TARGET_SCREEN_FPS;  // In microseconds
-            int64 target_duration_ticks =
-                (TARGET_FRAME_DURATION * master_timer.COUNTER_FREQUENCY) / MICRO;  // Convert to ticks
+            real64 TARGET_FRAME_DURATION__Millis = 1000 / TARGET_SCREEN_FPS;
+            real64 target_duration_ticks =
+                (TARGET_FRAME_DURATION__Millis * master_timer.COUNTER_FREQUENCY) / 1000;  // Convert to ticks
             Uint64 elapsed_ticks = counter_after_render - counter_now;
 
             if (elapsed_ticks < target_duration_ticks)
             {
                 Uint64 remaining_ticks = target_duration_ticks - elapsed_ticks;
-                Uint64 remaining_microseconds = MICRO * (remaining_ticks / master_timer.COUNTER_FREQUENCY);
+                real64 remaining_millis = 1000 * ((real64)remaining_ticks / master_timer.COUNTER_FREQUENCY);
 
-                // Use SDL_Delay for most of the remaining time if it's large enough
-                if (remaining_microseconds > 1000)
+                if (remaining_millis > 2.f)
                 {
-                    SDL_Delay(remaining_microseconds / 1000);  // Delay in milliseconds
+                    // Precision can be ~1ms on sleep these days. I'm minusing a ms because i want to spin wait
+                    // for the remainder ms.
+                    SDL_Delay(remaining_millis - 1.0f);
                 }
 
                 // Spin-wait for the remaining time (microsecond precision)
@@ -801,7 +749,7 @@ int32 main(int32 argc, char* argv[])
         global_last_cycle_count = global_end_cycle_count_after_delay;
 #endif
 //==============================
-    }
+    } // end while (global_running)
 
     cleanup_fonts();
     SDL_DestroyRenderer(global_renderer);

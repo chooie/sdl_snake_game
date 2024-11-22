@@ -11,6 +11,7 @@ enum
     BUTTON_ENTER,
 
     BUTTON_SPACE,
+    BUTTON_ESCAPE,
 
     BUTTON_COUNT,  // Should be the last item
 };
@@ -73,6 +74,7 @@ void handle_input(SDL_Event* event, Input* input)
                     process_input(BUTTON_RIGHT, SDLK_RIGHT);
                     process_input(BUTTON_SPACE, SDLK_SPACE);
                     process_input(BUTTON_ENTER, SDLK_RETURN);
+                    process_input(BUTTON_ESCAPE, SDLK_ESCAPE);
                 }
             }
             break;
@@ -84,18 +86,10 @@ void handle_input(SDL_Event* event, Input* input)
             {
                 switch (event->key.keysym.sym)
                 {
-                    case SDLK_ESCAPE:
-                    {
-                        global_running = 0;
-                    } break;
                     case SDLK_BACKQUOTE:
                     {
                         global_display_debug_info = !global_display_debug_info;
                     } break;
-                    // case SDLK_s:
-                    // {
-                    //     SDL_WarpMouseInWindow(global_window, window_width / 2, window_height / 2);
-                    // } break;
                     case SDLK_f:
                     {
                         int isFullScreen = SDL_GetWindowFlags(global_window) & SDL_WINDOW_FULLSCREEN_DESKTOP;
@@ -145,7 +139,7 @@ void handle_input(SDL_Event* event, Input* input)
 
             case SDL_QUIT:
             {
-                global_running = false;
+                global_running = 0;
             }
             break;
         }

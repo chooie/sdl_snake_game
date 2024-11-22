@@ -191,7 +191,13 @@ void gameplay__handle_input(Scene* scene, Input* input)
 {
     Gameplay__State* state = (Gameplay__State*)scene->state;
 
-    if (pressed(BUTTON_SPACE))
+    if (pressed(BUTTON_ESCAPE))
+    {
+        global_current_scene = &global_start_screen_scene;
+        stop_music();
+    }
+
+    if (pressed(BUTTON_SPACE) && !state->game_over)
     {
         state->is_paused = !state->is_paused;
     }
@@ -248,14 +254,14 @@ uint32 custom_rand_range(uint32 max)
     return custom_rand() % (max);
 }
 
-void gameplay__update(struct Scene* scene, Audio_Context* audio_context, real64 simulation_time_elapsed, real32 dt_s)
+void gameplay__update(struct Scene* scene, real64 simulation_time_elapsed, real32 dt_s)
 {
     Gameplay__State* state = (Gameplay__State*)scene->state;
 
     if (state->is_starting)
     {
         state->is_starting = 0;
-        play_music(audio_context);
+        play_music(&global_audio_context);
         set_music_volume(10.f);
     }
 
@@ -314,7 +320,7 @@ void gameplay__update(struct Scene* scene, Audio_Context* audio_context, real64 
         {  // Blip collision
             if (state->pos_x == state->blip_pos_x && state->pos_y == state->blip_pos_y)
             {
-                play_sound_effect(audio_context->effect_beep);
+                play_sound_effect(global_audio_context.effect_beep_2);
 
                 {  // Grow snake part
                     Snake_Part new_snake_part = {};
@@ -417,7 +423,7 @@ void gameplay__update(struct Scene* scene, Audio_Context* audio_context, real64 
 
             if (state->game_over)
             {
-                play_sound_effect(audio_context->effect_boom);
+                play_sound_effect(global_audio_context.effect_boom);
             }
         }
 
