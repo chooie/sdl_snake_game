@@ -2,4 +2,4 @@
 
 A project I made for learning SDL2.
 
-![Video demonstration](./snake_game_recording.mp4)
+![Video demonstartion](https://github.com/user-attachments/assets/d134efa5-a64e-4095-bae5-4a428a6eac28)
